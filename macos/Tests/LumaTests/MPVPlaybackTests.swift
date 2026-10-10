@@ -1,10 +1,37 @@
 import AppKit
 import Foundation
 import Network
+import OpenGL
 import Testing
+import VideoToolbox
 @testable import Luma
 
-@Suite(.serialized)
+// Hosted macOS VMs can run AppKit tests but lack an accelerated OpenGL device.
+// Probe the OS independently of MPVPlayback so a regression in the player still
+// fails on capable machines instead of being mistaken for unavailable hardware.
+private enum PlaybackTestGraphics {
+    static let isAvailable: Bool = {
+        let attributes: [CGLPixelFormatAttribute] = [
+            kCGLPFAOpenGLProfile, CGLPixelFormatAttribute(kCGLOGLPVersion_3_2_Core.rawValue),
+            kCGLPFAAccelerated, kCGLPFADoubleBuffer, kCGLPFAAllowOfflineRenderers,
+            kCGLPFAColorSize, CGLPixelFormatAttribute(24),
+            kCGLPFAAlphaSize, CGLPixelFormatAttribute(8), CGLPixelFormatAttribute(0)
+        ]
+        var format: CGLPixelFormatObj?
+        var count: GLint = 0
+        let result = CGLChoosePixelFormat(attributes, &format, &count)
+        guard let format else { return false }
+        defer { CGLDestroyPixelFormat(format) }
+        guard result == kCGLNoError, count > 0 else { return false }
+        var context: CGLContextObj?
+        guard CGLCreateContext(format, nil, &context) == kCGLNoError, let context else { return false }
+        CGLDestroyContext(context)
+        return true
+    }()
+}
+
+@Suite(.serialized, .enabled(if: PlaybackTestGraphics.isAvailable,
+                            "Requires accelerated OpenGL 3.2; validate playback on a Mac with a GPU."))
 @MainActor
 struct MPVPlaybackTests {
     @Test(.enabled(if: LocalPlaybackBridge.converterURL != nil))
@@ -79,7 +106,9 @@ struct MPVPlaybackTests {
         #expect(player.subtitleTracks.count == 3)
         #expect(player.subtitleTracks.prefix(2).map(\.title) == ["chs&eng", "chs&eng"],
                 "Distinct tracks with duplicate titles must keep their independent IDs")
-        #expect(player.hardwareDecoder == "videotoolbox", "Supported HEVC must use VideoToolbox directly")
+        if VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC) {
+            #expect(player.hardwareDecoder == "videotoolbox", "Supported HEVC must use VideoToolbox directly")
+        }
 
         let thirdSubtitle = try #require(player.subtitleTracks.last)
         #expect(thirdSubtitle.title == "chs")
