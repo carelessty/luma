@@ -3,9 +3,9 @@ name: Native macOS checks
 on:
   push:
     branches: [main, master]
-    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'LICENSE', 'docs/assets.md', '.github/workflows/macos-native.yml']
+    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'scripts/prepare-release.sh', 'scripts/collect-dependency-sources.py', 'scripts/release-sources-*.json', 'LICENSE', 'docs/assets.md', '.github/workflows/macos-native.yml']
   pull_request:
-    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'LICENSE', 'docs/assets.md', '.github/workflows/macos-native.yml']
+    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'scripts/prepare-release.sh', 'scripts/collect-dependency-sources.py', 'scripts/release-sources-*.json', 'LICENSE', 'docs/assets.md', '.github/workflows/macos-native.yml']
   workflow_dispatch:
 
 permissions:
@@ -28,11 +28,15 @@ jobs:
           xcrun --sdk macosx --show-sdk-version
       - name: Native playback dependencies
         run: brew install mpv pkgconf ffmpeg
+      - name: Release tooling syntax
+        run: |
+          bash -n scripts/prepare-release.sh
+          python3 scripts/collect-dependency-sources.py --help
       - name: Native unit tests
         run: ./scripts/test-macos.sh
       - name: Build and locally sign the native app
         run: scripts/build-macos.sh
       - name: Archive app and verify extracted signature
         run: scripts/archive-macos.sh
-      # Source-only publication: do not distribute linked binaries until a
-      # matching dependency source bundle and release signing are prepared.
+      # Publication is separate: include matching dependency sources and
+      # disclose the signing/notarization status before uploading binaries.

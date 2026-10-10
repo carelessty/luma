@@ -1,0 +1,116 @@
+[
+  {
+    "package": "glib",
+    "role": "patches",
+    "original_path": "Patches/glib/hardcoded-paths.diff",
+    "url": "https://raw.githubusercontent.com/Homebrew/homebrew-core/1cf441a09f572566b1b7c4695a4d169d1177248a/Patches/glib/hardcoded-paths.diff",
+    "sha256": "d846efd0bf62918350da94f850db33b0f8727fece9bfaf8164566e3094e80c97",
+    "path": "packages/glib/patches/hardcoded-paths.diff"
+  },
+  {
+    "package": "fast_float",
+    "role": "headers",
+    "url": "https://github.com/fastfloat/fast_float/archive/refs/tags/v8.2.10.tar.gz",
+    "sha256": "76f958dd97b1cf4d8862d1f0986a47d4bdfa8845252bae15ef0f40de3b95961f",
+    "path": "packages/fast_float/upstream/fast_float-8.2.10.tar.gz",
+    "provenance": "Homebrew formula at a412e50ebc709cc3edbfabcc1e3feb330a1b18e2, latest preceding libplacebo bottle build on 2026-09-10; header-only build dependency."
+  },
+  {
+    "package": "libplacebo",
+    "role": "submodules",
+    "url": "https://github.com/KhronosGroup/Vulkan-Headers",
+    "specs": {
+      "revision": "450bd2232225d6c7728a4108055ac2e37cef6475"
+    },
+    "path": "packages/libplacebo/submodules/Vulkan-Headers-450bd2232225d6c7728a4108055ac2e37cef6475.tar.gz",
+    "upstream_path": "3rdparty/Vulkan-Headers",
+    "parent_revision": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+  },
+  {
+    "package": "libplacebo",
+    "role": "submodules",
+    "url": "https://github.com/fastfloat/fast_float.git",
+    "specs": {
+      "revision": "97b54ca9e75f5303507699d27c6b4f4efe4641a1"
+    },
+    "path": "packages/libplacebo/submodules/fast_float-97b54ca9e75f5303507699d27c6b4f4efe4641a1.tar.gz",
+    "upstream_path": "3rdparty/fast_float",
+    "parent_revision": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+  },
+  {
+    "package": "libplacebo",
+    "role": "submodules",
+    "url": "https://github.com/Dav1dde/glad",
+    "specs": {
+      "revision": "73db193f853e2ee079bf3ca8a64aa2eaf6459043"
+    },
+    "path": "packages/libplacebo/submodules/glad-73db193f853e2ee079bf3ca8a64aa2eaf6459043.tar.gz",
+    "upstream_path": "3rdparty/glad",
+    "parent_revision": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+  },
+  {
+    "package": "libplacebo",
+    "role": "submodules",
+    "url": "https://github.com/pallets/jinja",
+    "specs": {
+      "revision": "15206881c006c79667fe5154fe80c01c65410679"
+    },
+    "path": "packages/libplacebo/submodules/jinja-15206881c006c79667fe5154fe80c01c65410679.tar.gz",
+    "upstream_path": "3rdparty/jinja",
+    "parent_revision": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+  },
+  {
+    "package": "libplacebo",
+    "role": "submodules",
+    "url": "https://github.com/pallets/markupsafe",
+    "specs": {
+      "revision": "297fc8e356e6836a62087949245d09a28e9f1b13"
+    },
+    "path": "packages/libplacebo/submodules/markupsafe-297fc8e356e6836a62087949245d09a28e9f1b13.tar.gz",
+    "upstream_path": "3rdparty/markupsafe",
+    "parent_revision": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+  },
+  {
+    "package": "libplacebo",
+    "role": "submodules",
+    "url": "https://github.com/Immediate-Mode-UI/Nuklear.git",
+    "specs": {
+      "revision": "242f35efa067a46c595645eeda7b1771ea1f83b1"
+    },
+    "path": "packages/libplacebo/submodules/nuklear-242f35efa067a46c595645eeda7b1771ea1f83b1.tar.gz",
+    "upstream_path": "demos/3rdparty/nuklear",
+    "parent_revision": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+  },
+  {
+    "package": "vulkan-headers",
+    "role": "headers",
+    "url": "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/vulkan-sdk-1.4.363.0.tar.gz",
+    "sha256": "4a078be12bef21cfebc09d878b77a63cff9d68f899254a0b00d0e37ef73e7f7e",
+    "path": "packages/vulkan-headers/upstream/vulkan-sdk-1.4.363.0.tar.gz",
+    "provenance": "Installed Vulkan-Headers formula; matches packaged Vulkan-Loader version."
+  },
+  {
+    "package": "vulkan-headers",
+    "role": "headers",
+    "url": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+    "specs": {
+      "revision": "e3b1eec08173d6b825cd3ac88c885a63b621504a"
+    },
+    "path": "packages/vulkan-headers/upstream/vulkan-sdk-1.4.357.0.tar.gz",
+    "provenance": "Vulkan-Headers 1.4.357.0 reported in the libplacebo bottle SBOM; Git tag vulkan-sdk-1.4.357.0 resolves to this commit."
+  },
+  {
+    "package": "fast_float",
+    "role": "build",
+    "url": "https://raw.githubusercontent.com/Homebrew/homebrew-core/a412e50ebc709cc3edbfabcc1e3feb330a1b18e2/Formula/f/fast_float.rb",
+    "sha256": "2d0d9e1bfafb166de41473207766f42a05d35691214d19c1c70ba4e65f70cab4",
+    "path": "packages/fast_float/build/fast_float.rb"
+  },
+  {
+    "package": "homebrew",
+    "role": "license",
+    "url": "https://raw.githubusercontent.com/Homebrew/homebrew-core/1cf441a09f572566b1b7c4695a4d169d1177248a/LICENSE.txt",
+    "sha256": "f80329e58613ad669c0e73cb132d8060b9b2c55e339c73848068e4d1567f4627",
+    "path": "packages/homebrew/LICENSE.txt"
+  }
+]

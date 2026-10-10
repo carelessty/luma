@@ -9,7 +9,13 @@ A native Emby client for macOS, written in Swift and AppKit.
 [![Native macOS checks](https://github.com/carelessty/lumo/actions/workflows/macos-native.yml/badge.svg)](https://github.com/carelessty/lumo/actions/workflows/macos-native.yml)
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-Luma brings your Emby library to the Mac with native navigation, system playback controls, and support for formats such as MKV through libmpv. The project is under active development. Source builds are available; there are no prebuilt releases yet.
+Luma brings your Emby library to the Mac with native navigation, system playback controls, and support for formats such as MKV through libmpv. The project is under active development.
+
+## Download
+
+Get the [latest preview release](https://github.com/carelessty/lumo/releases). The first prebuilt version, **0.4.0**, requires **Apple Silicon and macOS 27 or later**. Download the application ZIP, extract it, and drag `Luma.app` to Applications. Homebrew is not required to run this build.
+
+Preview builds are ad-hoc signed and **not notarized by Apple**. macOS may block the first launch; see [Apple's instructions for opening an app from an unidentified developer](https://support.apple.com/en-us/102445). The release includes checksums and the corresponding dependency sources. Intel and older macOS builds are not provided yet.
 
 ## Features
 
@@ -47,6 +53,8 @@ See the [development guide](docs/development.md) for debug builds, packaging, an
 ## Use
 
 Connect with your Emby server address and account, for example `https://media.example.com` or `http://192.168.1.10:8096`. Keep any reverse-proxy path prefix; do not use the server's `/web/index.html` address.
+
+For HTTPS playback with libmpv, use a certificate trusted by macOS's public CA bundle. Self-signed certificates and private CAs installed only in Keychain are not supported by that engine.
 
 Luma restores the last session on launch. Use **Manage Connection…** in the sidebar to switch servers, or **Disconnect & Forget** to remove the saved session. Access tokens are stored in Keychain; passwords are not saved.
 

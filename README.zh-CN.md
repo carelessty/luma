@@ -9,7 +9,13 @@
 [![Native macOS checks](https://github.com/carelessty/lumo/actions/workflows/macos-native.yml/badge.svg)](https://github.com/carelessty/lumo/actions/workflows/macos-native.yml)
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-Luma 让你在 Mac 上浏览和播放 Emby 媒体库，使用原生界面和系统播放控件，通过 libmpv 支持 MKV 等媒体格式。项目仍在开发中，目前提供源码构建，暂未发布预编译安装包。
+Luma 让你在 Mac 上浏览和播放 Emby 媒体库，使用原生界面和系统播放控件，通过 libmpv 支持 MKV 等媒体格式。项目仍在开发中。
+
+## 下载
+
+前往[发布页面](https://github.com/carelessty/lumo/releases)下载预览版。首个预编译版本 **0.4.0** 要求 **Apple Silicon 芯片及 macOS 27 或更新版本**。下载应用 ZIP，解压后将 `Luma.app` 拖入「应用程序」即可，无需安装 Homebrew。
+
+预览版使用临时签名，**尚未通过 Apple 公证**。macOS 可能阻止首次打开，操作说明见 [Apple 官方文档](https://support.apple.com/zh-cn/102445)。发布附件包含校验值及对应的依赖源码。目前暂不提供 Intel 或更旧 macOS 的安装包。
 
 ## 功能
 
@@ -47,6 +53,8 @@ brew install mpv pkgconf ffmpeg
 ## 使用
 
 填写 Emby 服务器地址和账户，例如 `https://media.example.com` 或 `http://192.168.1.10:8096`。使用反向代理时保留路径前缀，不要填写服务器的 `/web/index.html` 页面地址。
+
+使用 libmpv 播放 HTTPS 媒体时，服务器证书须受 macOS 公共 CA 证书包信任；该播放引擎暂不支持自签名证书或仅安装在钥匙串中的私有 CA。
 
 Luma 启动时会恢复上次会话。通过侧边栏的**管理连接…**切换服务器，或使用**断开并忘记**移除保存的会话。访问令牌保存在钥匙串中，密码不保存。
 

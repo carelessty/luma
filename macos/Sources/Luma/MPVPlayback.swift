@@ -225,6 +225,9 @@ private final class MPVCore: @unchecked Sendable {
             "cache": "yes", "cache-on-disk": "no", "cache-secs": "30",
             "demuxer-max-bytes": "64MiB", "demuxer-max-back-bytes": "32MiB",
             "network-timeout": "15", "idle": "yes", "keep-open": "no",
+            // Homebrew's OpenSSL build does not read Keychain trust. Use the
+            // OS-provided CA bundle so HTTPS verification also works after install.
+            "tls-verify": "yes", "tls-ca-file": "/etc/ssl/cert.pem",
             "save-position-on-quit": "no", "sub-auto": "no", "audio-file-auto": "no",
             "video-sync": "audio", "sub-ass": "yes"
         ]

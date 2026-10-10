@@ -78,4 +78,16 @@ Use macOS **Language & Region → Applications** to test a language override and
 
 The archive is written to `build/macos/Luma-macOS.zip`. The archive script extracts a temporary copy and verifies its code signature. GitHub Actions runs tests, builds the app, and checks the archive; it does not publish binaries.
 
-Local builds are ad-hoc signed. A public binary release needs release signing, notarization, and the corresponding source and license materials for the exact bundled dependencies. The generated dependency manifest is at `Luma.app/Contents/Resources/ThirdParty/manifest.json`. See [third-party notices](../macos/ThirdPartyNotices.md).
+Local builds and the initial public preview are ad-hoc signed, without Apple notarization. Release notes must state the signature status, supported architectures, and actual minimum macOS version. The generated dependency manifest is at `Luma.app/Contents/Resources/ThirdParty/manifest.json`. See [third-party notices](../macos/ThirdPartyNotices.md).
+
+For a release, run `./scripts/prepare-release.sh <commit-or-tag>`. This builds a committed snapshot in a clean temporary directory, removes debug path records, verifies the extracted app signature, and writes the application ZIP, Luma source archive and dependency manifest to `build/release/`. It rejects application bundles containing personal build paths. Collect the matching dependency sources with `scripts/collect-dependency-sources.py` before publishing a binary. Publish all source archives and SHA-256 checksums on the same release page; retain the source assets for as long as their binary is available.
+
+For the 0.4.0 Apple Silicon preview:
+
+```sh
+ditto -x -k build/release/Luma-0.4.0-macos-arm64.zip build/release/verify
+python3 scripts/collect-dependency-sources.py build/release/verify/Luma.app \
+  --version 0.4.0 --supplement scripts/release-sources-0.4.0.json
+```
+
+Run source collection before upgrading Homebrew dependencies. The collector checks the app's recipes against the installed versions and validates each download using its pinned checksum or Git commit. The versioned supplement supplies external build inputs that the installed recipes do not fully describe; review it for each new dependency set.

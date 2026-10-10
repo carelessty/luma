@@ -214,6 +214,7 @@ def bundle(app: Path) -> None:
     }
     (third_party / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     shutil.copyfile(Path(__file__).parent.parent / "macos/ThirdPartyNotices.md", third_party / "README.md")
+    shutil.copyfile(Path(__file__).parent.parent / "macos/Homebrew-LICENSE.txt", third_party / "Homebrew-LICENSE.txt")
     for binary in sorted(frameworks.iterdir()):
         run("codesign", "--force", "--sign", "-", binary)
         run("codesign", "--verify", "--strict", binary)

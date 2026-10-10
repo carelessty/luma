@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Network
 import OpenGL
+import Security
 import Testing
 import VideoToolbox
 @testable import Luma
@@ -187,6 +188,28 @@ struct MPVPlaybackTests {
         try await Task.sleep(nanoseconds: 200_000_000)
     }
 
+    @available(macOS 15, *)
+    @Test
+    func rejectsUntrustedHTTPSBeforeSendingAnAuthenticatedRequest() async throws {
+        _ = NSApplication.shared
+        let server = try await Task.detached { try UntrustedMPVTLSServer() }.value
+        defer { server.stop() }
+        try await waitFor { server.port != nil }
+        let port = try #require(server.port)
+        let player = try MPVPlayback()
+        defer { player.stop() }
+        var reportedError: String?
+        player.onError = { reportedError = $0 }
+        let url = try #require(URL(string: "https://127.0.0.1:\(port)/video.mkv?api_key=fixture-private-token"))
+        try player.load(url: url, startSeconds: 0, paused: false, defaultSubtitles: false)
+        try await waitFor { reportedError != nil }
+        let message = try #require(reportedError)
+        #expect(server.acceptedConnection, "The fixture must receive a connection before rejecting TLS")
+        #expect(!server.receivedRequest, "An untrusted server must never receive the credential-bearing HTTP request")
+        #expect(!message.contains("fixture-private-token"))
+        #expect(!message.contains(url.absoluteString))
+    }
+
     @Test
     func decoderErrorsNeverExposeAnAuthenticatedURLAndStopCancelsCallbacks() async throws {
         _ = NSApplication.shared
@@ -213,6 +236,90 @@ struct MPVPlaybackTests {
             if predicate() { return }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
+    }
+}
+
+/// A fresh, untrusted identity exists only inside the test's temporary directory.
+/// No certificate is installed in Keychain and no external server is contacted.
+@available(macOS 15, *)
+private final class UntrustedMPVTLSServer: @unchecked Sendable {
+    private let listener: NWListener
+    private let queue = DispatchQueue(label: "io.luma.tests.untrusted-tls")
+    private let lock = NSLock()
+    private var readyPort: UInt16?
+    private var didAccept = false
+    private var didReceive = false
+    private var connections: [NWConnection] = []
+    var port: UInt16? {
+        lock.lock(); defer { lock.unlock() }
+        return readyPort
+    }
+    var acceptedConnection: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return didAccept
+    }
+    var receivedRequest: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return didReceive
+    }
+
+    init() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("luma-tls-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                               attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        for arguments in [
+            ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", "key.pem",
+             "-out", "certificate.pem", "-days", "1", "-subj", "/CN=localhost"],
+            ["pkcs12", "-export", "-out", "identity.p12", "-inkey", "key.pem",
+             "-in", "certificate.pem", "-password", "pass:luma-test-only"]
+        ] {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/openssl")
+            process.currentDirectoryURL = directory
+            process.arguments = arguments
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { throw CocoaError(.executableRuntimeMismatch) }
+        }
+        let data = try Data(contentsOf: directory.appendingPathComponent("identity.p12"))
+        var imported: CFArray?
+        let options = [kSecImportExportPassphrase: "luma-test-only", kSecImportToMemoryOnly: true] as CFDictionary
+        let status = SecPKCS12Import(data as CFData, options, &imported)
+        guard status == errSecSuccess,
+              let items = imported as? [[String: Any]], let value = items.first?[kSecImportItemIdentity as String]
+        else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
+        let identity = value as! SecIdentity
+        guard let protocolIdentity = sec_identity_create(identity) else { throw CocoaError(.fileReadCorruptFile) }
+        let tls = NWProtocolTLS.Options()
+        sec_protocol_options_set_local_identity(tls.securityProtocolOptions, protocolIdentity)
+        let parameters = NWParameters(tls: tls, tcp: NWProtocolTCP.Options())
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        listener = try NWListener(using: parameters)
+        listener.stateUpdateHandler = { [weak self] state in
+            guard let self, case .ready = state, let port = self.listener.port?.rawValue, port > 0 else { return }
+            self.lock.lock(); self.readyPort = port; self.lock.unlock()
+        }
+        listener.newConnectionHandler = { [weak self] connection in
+            guard let self else { connection.cancel(); return }
+            self.connections.append(connection)
+            self.lock.lock(); self.didAccept = true; self.lock.unlock()
+            connection.start(queue: self.queue)
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [weak self] data, _, _, _ in
+                guard let self, let data, !data.isEmpty else { connection.cancel(); return }
+                self.lock.lock(); self.didReceive = true; self.lock.unlock()
+                let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
+            }
+        }
+        listener.start(queue: queue)
+    }
+
+    func stop() {
+        listener.cancel()
+        queue.async { [self] in connections.forEach { $0.cancel() }; connections.removeAll() }
     }
 }
 
