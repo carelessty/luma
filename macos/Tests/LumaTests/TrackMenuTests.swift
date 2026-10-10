@@ -5,6 +5,12 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct TrackMenuTests {
+    init() {
+        // Native menu actions use NSApplication for target/action dispatch.
+        // Do not rely on another AppKit test suite having initialized it first.
+        _ = NSApplication.shared
+    }
+
     @Test
     func repeatedAudioTitlesKeepIndependentTrackIDs() {
         let popup = NSPopUpButton(frame: .zero, pullsDown: false)
