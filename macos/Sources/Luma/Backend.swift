@@ -51,15 +51,15 @@ actor MediaService {
     /// failure preserves the restored session so Refresh can retry it.
     func restoreSession() async throws -> Session? {
         if let auth { return auth.session }
-        if expired { throw ServiceError(code: "AUTH_REQUIRED", message: "登录已过期，请重新连接服务器。") }
+        if expired { throw ServiceError(code: "AUTH_REQUIRED", message: L10n.service("auth.expired")) }
         if restorationAttempted { return nil }
-        guard !connecting else { throw ServiceError(code: "CONNECTING", message: "正在连接服务器，请稍候。") }
+        guard !connecting else { throw ServiceError(code: "CONNECTING", message: L10n.service("connection.busy")) }
         guard let saved = try sessionStore.load() else { restorationAttempted = true; return nil }
         let base = try Self.normalizeServer(saved.serverURL)
         try Self.validID(saved.userID)
         guard !saved.token.isEmpty, !saved.token.contains("\r"), !saved.token.contains("\n"),
               !saved.deviceID.isEmpty, !saved.deviceID.contains("\""), !saved.deviceID.contains("\r"), !saved.deviceID.contains("\n") else {
-            throw ServiceError(code: "SESSION_STORAGE", message: "保存的连接凭据无效，请重新连接服务器。")
+            throw ServiceError(code: "SESSION_STORAGE", message: L10n.service("session.invalid"))
         }
         try Task.checkCancellation()
         generation += 1
@@ -82,21 +82,21 @@ actor MediaService {
               let host = parts.host, !host.isEmpty,
               parts.user == nil, parts.password == nil,
               parts.query == nil, parts.fragment == nil else {
-            throw ServiceError(code: "INVALID_SERVER", message: "请输入 HTTP 或 HTTPS 服务器根地址，不包含账号、查询参数或页面锚点。")
+            throw ServiceError(code: "INVALID_SERVER", message: L10n.service("server.invalidRoot"))
         }
         let path = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard !path.lowercased().split(separator: "/").contains("web"), !path.lowercased().hasSuffix(".html") else {
-            throw ServiceError(code: "INVALID_SERVER", message: "请输入服务器根地址（如 http://localhost:8096），不要包含 /web 页面路径。")
+            throw ServiceError(code: "INVALID_SERVER", message: L10n.service("server.webPath"))
         }
         parts.path = path.isEmpty ? "/emby/" : "/\(path)/"
-        guard let url = parts.url else { throw ServiceError(code: "INVALID_SERVER", message: "服务器地址格式不正确。") }
+        guard let url = parts.url else { throw ServiceError(code: "INVALID_SERVER", message: L10n.service("server.invalidURL")) }
         return url
     }
 
     private static func validID(_ id: String) throws {
         guard !id.isEmpty, id.utf8.count <= 256,
               id.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 || $0 == 95 }) else {
-            throw ServiceError(code: "INVALID_INPUT", message: "媒体标识无效。")
+            throw ServiceError(code: "INVALID_INPUT", message: L10n.service("media.invalidID"))
         }
     }
 
@@ -107,8 +107,8 @@ actor MediaService {
     func connect(serverURL: String, username: String, password: String) async throws -> Session {
         let base = try Self.normalizeServer(serverURL)
         let name = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw ServiceError(code: "INVALID_INPUT", message: "请输入用户名。") }
-        guard !connecting else { throw ServiceError(code: "CONNECTING", message: "正在连接服务器，请稍候。") }
+        guard !name.isEmpty else { throw ServiceError(code: "INVALID_INPUT", message: L10n.service("auth.usernameRequired")) }
+        guard !connecting else { throw ServiceError(code: "CONNECTING", message: L10n.service("connection.busy")) }
         connecting = true
         defer { connecting = false }
         generation += 1
@@ -118,7 +118,7 @@ actor MediaService {
         guard let token = response["AccessToken"] as? String, !token.isEmpty,
               !token.contains("\r"), !token.contains("\n"),
               let user = response["User"] as? [String: Any], let userID = user["Id"] as? String else {
-            throw ServiceError(code: "AUTH_FAILED", message: "服务器未返回有效的访问凭据或用户信息。")
+            throw ServiceError(code: "AUTH_FAILED", message: L10n.service("auth.invalidResponse"))
         }
         try Self.validID(userID)
         var next = Auth(session: Session(serverURL: String(base.absoluteString.dropLast()), userID: userID, userName: user["Name"] as? String ?? name, serverName: base.host ?? "Emby", deviceID: deviceID), base: base, token: token, generation: requestGeneration)
@@ -131,7 +131,7 @@ actor MediaService {
                 Task { _ = try? await self.request(base: base, path: "Sessions/Logout", method: "POST", token: token) }
             }
             if Task.isCancelled { throw CancellationError() }
-            throw ServiceError(code: "SESSION_CHANGED", message: "连接请求已取消。")
+            throw ServiceError(code: "SESSION_CHANGED", message: L10n.service("connection.cancelled"))
         }
         do { try sessionStore.save(StoredSession(session: next.session, token: token)) }
         catch {
@@ -168,23 +168,23 @@ actor MediaService {
     }
 
     private func currentAuth() throws -> Auth? {
-        if expired { throw ServiceError(code: "AUTH_REQUIRED", message: "登录已过期，请重新连接服务器。") }
+        if expired { throw ServiceError(code: "AUTH_REQUIRED", message: L10n.service("auth.expired")) }
         return auth
     }
 
     private func verify(_ snapshot: Auth) throws {
         guard auth?.generation == snapshot.generation else {
-            throw ServiceError(code: "SESSION_CHANGED", message: "服务器连接已变更，请刷新后重试。")
+            throw ServiceError(code: "SESSION_CHANGED", message: L10n.service("session.changed"))
         }
     }
 
     private func request(base: URL, path: String, method: String = "GET", query: [String: String] = [:], body: [String: Any]? = nil, token: String? = nil, authGeneration: Int? = nil) async throws -> Data {
         guard let endpoint = URL(string: path, relativeTo: base)?.absoluteURL,
               var parts = URLComponents(url: endpoint, resolvingAgainstBaseURL: true) else {
-            throw ServiceError(code: "INVALID_INPUT", message: "请求地址无效。")
+            throw ServiceError(code: "INVALID_INPUT", message: L10n.service("request.invalidURL"))
         }
         if !query.isEmpty { parts.queryItems = query.sorted(by: { $0.key < $1.key }).map { URLQueryItem(name: $0.key, value: $0.value) } }
-        guard let url = parts.url else { throw ServiceError(code: "INVALID_INPUT", message: "请求地址无效。") }
+        guard let url = parts.url else { throw ServiceError(code: "INVALID_INPUT", message: L10n.service("request.invalidURL")) }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -201,10 +201,10 @@ actor MediaService {
         catch is CancellationError { throw CancellationError() }
         catch let error as URLError {
             if error.code == .cancelled { throw CancellationError() }
-            if error.code == .timedOut { throw ServiceError(code: "TIMEOUT", message: "服务器响应超时，请检查网络后重试。") }
-            throw ServiceError(code: "NETWORK", message: "无法连接服务器，请检查地址、网络和 TLS 证书。")
+            if error.code == .timedOut { throw ServiceError(code: "TIMEOUT", message: L10n.service("network.timeout")) }
+            throw ServiceError(code: "NETWORK", message: L10n.service("network.unreachable"))
         }
-        guard let response = response as? HTTPURLResponse else { throw ServiceError(code: "INVALID_RESPONSE", message: "服务器返回了无效的响应。") }
+        guard let response = response as? HTTPURLResponse else { throw ServiceError(code: "INVALID_RESPONSE", message: L10n.service("response.invalid")) }
         guard (200...299).contains(response.statusCode) else {
             switch response.statusCode {
             case 400:
@@ -213,31 +213,31 @@ actor MediaService {
                 // Do not expose the raw response, which may echo credentials.
                 if path == "Users/AuthenticateByName", method == "POST" {
                     let message = (body?["Pw"] as? String)?.isEmpty == true
-                        ? "服务器拒绝了空密码登录，请填写密码后重试。"
-                        : "登录请求被服务器拒绝（HTTP 400），请检查用户名和密码后重试。"
+                        ? L10n.service("auth.emptyPassword")
+                        : L10n.service("auth.badRequest")
                     throw ServiceError(code: "AUTH_FAILED", message: message)
                 }
-                throw ServiceError(code: "BAD_REQUEST", message: "服务器无法处理此请求（HTTP 400），请刷新后重试。")
+                throw ServiceError(code: "BAD_REQUEST", message: L10n.service("request.badRequest"))
             case 401:
                 // Servers may reuse an access token when the same user logs in
                 // again. A late failure from the old session must not erase
                 // the newly saved connection just because its token matches.
                 if let authGeneration, let auth, auth.generation != authGeneration {
-                    throw ServiceError(code: "SESSION_CHANGED", message: "服务器连接已变更，请刷新后重试。")
+                    throw ServiceError(code: "SESSION_CHANGED", message: L10n.service("session.changed"))
                 }
                 if let token, let authGeneration, auth?.generation == authGeneration, auth?.token == token, auth?.base == base {
                     auth = nil
                     expired = true
                     generation += 1
                     do { try sessionStore.clear() }
-                    catch { throw ServiceError(code: "SESSION_STORAGE", message: "登录已过期，但无法删除钥匙串中的旧凭据。请允许 Luma 访问钥匙串后重新连接。") }
+                    catch { throw ServiceError(code: "SESSION_STORAGE", message: L10n.service("session.expiredKeychain")) }
                 }
-                throw ServiceError(code: token == nil ? "AUTH_FAILED" : "AUTH_REQUIRED", message: token == nil ? "用户名或密码不正确。" : "登录已过期，请重新连接服务器。")
-            case 403: throw ServiceError(code: "FORBIDDEN", message: "服务器未允许此操作，请检查账号权限。")
-            case 404: throw ServiceError(code: "NOT_FOUND", message: "未找到媒体或 API，请检查服务器地址。")
-            case 429: throw ServiceError(code: "RATE_LIMITED", message: "请求过于频繁，请稍后重试。")
-            case 300...399: throw ServiceError(code: "INVALID_SERVER", message: "服务器要求重定向，请使用最终的服务器地址。")
-            default: throw ServiceError(code: "SERVER", message: "服务器返回错误（HTTP \(response.statusCode)），请稍后重试。")
+                throw ServiceError(code: token == nil ? "AUTH_FAILED" : "AUTH_REQUIRED", message: token == nil ? L10n.service("auth.invalidCredentials") : L10n.service("auth.expired"))
+            case 403: throw ServiceError(code: "FORBIDDEN", message: L10n.service("request.forbidden"))
+            case 404: throw ServiceError(code: "NOT_FOUND", message: L10n.service("request.notFound"))
+            case 429: throw ServiceError(code: "RATE_LIMITED", message: L10n.service("request.rateLimited"))
+            case 300...399: throw ServiceError(code: "INVALID_SERVER", message: L10n.service("server.redirect"))
+            default: throw ServiceError(code: "SERVER", message: L10n.service("response.httpError", response.statusCode))
             }
         }
         return data
@@ -251,7 +251,7 @@ actor MediaService {
 
     private func dictionary(_ data: Data) throws -> [String: Any] {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw ServiceError(code: "INVALID_RESPONSE", message: "服务器返回了无法解析的数据。")
+            throw ServiceError(code: "INVALID_RESPONSE", message: L10n.service("response.unreadable"))
         }
         return object
     }
@@ -259,7 +259,7 @@ actor MediaService {
     private func items(_ data: Data, auth: Auth) throws -> [MediaItem] {
         let object = try JSONSerialization.jsonObject(with: data)
         guard let raw = object as? [[String: Any]] ?? (object as? [String: Any])?["Items"] as? [[String: Any]] else {
-            throw ServiceError(code: "INVALID_RESPONSE", message: "服务器返回了无法解析的媒体列表。")
+            throw ServiceError(code: "INVALID_RESPONSE", message: L10n.service("response.invalidMediaList"))
         }
         return try raw.map { try normalize($0, auth: auth) }
     }
@@ -279,12 +279,12 @@ actor MediaService {
               result.scheme?.lowercased() == base.scheme?.lowercased(), result.host?.lowercased() == base.host?.lowercased(),
               (result.port ?? (result.scheme == "https" ? 443 : 80)) == (base.port ?? (base.scheme == "https" ? 443 : 80)),
               parts.user == nil, parts.password == nil else {
-            throw ServiceError(code: "PLAYBACK_UNSUPPORTED", message: "服务器返回了无效或指向其他服务器的媒体地址。")
+            throw ServiceError(code: "PLAYBACK_UNSUPPORTED", message: L10n.service("media.crossOrigin"))
         }
         var query = (parts.queryItems ?? []).filter { $0.name.lowercased() != "api_key" }
         query.append(URLQueryItem(name: "api_key", value: token))
         parts.queryItems = query
-        guard let url = parts.url else { throw ServiceError(code: "INVALID_RESPONSE", message: "媒体地址无效。") }
+        guard let url = parts.url else { throw ServiceError(code: "INVALID_RESPONSE", message: L10n.service("media.invalidURL")) }
         return url
     }
 
@@ -297,14 +297,14 @@ actor MediaService {
     }
 
     private func normalize(_ raw: [String: Any], auth: Auth) throws -> MediaItem {
-        guard let id = raw["Id"] as? String else { throw ServiceError(code: "INVALID_RESPONSE", message: "媒体条目缺少标识。") }
+        guard let id = raw["Id"] as? String else { throw ServiceError(code: "INVALID_RESPONSE", message: L10n.service("media.missingID")) }
         try Self.validID(id)
         let type = raw["Type"] as? String ?? ""
         let kind: MediaKind = ["Movie": .movie, "Series": .series, "Episode": .episode, "CollectionFolder": .collection, "BoxSet": .collection][type] ?? .other
         let userData = raw["UserData"] as? [String: Any] ?? [:]
         let duration = max(0, (raw["RunTimeTicks"] as? NSNumber)?.int64Value ?? 0)
         let position = max(0, (userData["PlaybackPositionTicks"] as? NSNumber)?.int64Value ?? 0)
-        var result = MediaItem(id: id, title: raw["Name"] as? String ?? "未命名", originalTitle: raw["OriginalTitle"] as? String, kind: kind, overview: raw["Overview"] as? String ?? "", year: raw["ProductionYear"] as? Int, durationTicks: duration, rating: raw["CommunityRating"] as? Double, genres: raw["Genres"] as? [String] ?? [], positionTicks: position, isFavorite: userData["IsFavorite"] as? Bool ?? false, isPlayed: userData["Played"] as? Bool ?? false, tagline: (raw["Taglines"] as? [String])?.first, seriesID: raw["SeriesId"] as? String, seriesTitle: raw["SeriesName"] as? String, seasonNumber: raw["ParentIndexNumber"] as? Int, episodeNumber: raw["IndexNumber"] as? Int, childCount: raw["ChildCount"] as? Int)
+        var result = MediaItem(id: id, title: raw["Name"] as? String ?? L10n.service("media.untitled"), originalTitle: raw["OriginalTitle"] as? String, kind: kind, overview: raw["Overview"] as? String ?? "", year: raw["ProductionYear"] as? Int, durationTicks: duration, rating: raw["CommunityRating"] as? Double, genres: raw["Genres"] as? [String] ?? [], positionTicks: position, isFavorite: userData["IsFavorite"] as? Bool ?? false, isPlayed: userData["Played"] as? Bool ?? false, tagline: (raw["Taglines"] as? [String])?.first, seriesID: raw["SeriesId"] as? String, seriesTitle: raw["SeriesName"] as? String, seasonNumber: raw["ParentIndexNumber"] as? Int, episodeNumber: raw["IndexNumber"] as? Int, childCount: raw["ChildCount"] as? Int)
         if let tag = (raw["ImageTags"] as? [String: String])?["Primary"] { result.imageURL = imageURL(auth, id: id, type: "Primary", tag: tag, width: 600) }
         else if let seriesID = result.seriesID, let tag = raw["SeriesPrimaryImageTag"] as? String { result.imageURL = imageURL(auth, id: seriesID, type: "Primary", tag: tag, width: 600) }
         if let tag = (raw["BackdropImageTags"] as? [String])?.first { result.backdropURL = imageURL(auth, id: id, type: "Backdrop/0", tag: tag, width: 1920) }
@@ -314,7 +314,7 @@ actor MediaService {
 
     private func library(_ query: LibraryQuery, auth: Auth) async throws -> LibraryPage {
         let sortBy = query.sortBy ?? "SortName"
-        guard ["SortName", "DateCreated", "ProductionYear", "CommunityRating", "DatePlayed", "Random", "PremiereDate"].contains(sortBy) else { throw ServiceError(code: "INVALID_INPUT", message: "不支持的排序方式。") }
+        guard ["SortName", "DateCreated", "ProductionYear", "CommunityRating", "DatePlayed", "Random", "PremiereDate"].contains(sortBy) else { throw ServiceError(code: "INVALID_INPUT", message: L10n.service("library.unsupportedSort")) }
         var params = ["Recursive": "true", "Fields": fields, "EnableImages": "true", "ImageTypeLimit": "1", "EnableUserData": "true", "StartIndex": String(max(0, query.startIndex ?? 0)), "Limit": String(min(200, max(1, query.limit ?? 60))), "SortBy": sortBy, "SortOrder": query.sortOrder == "Descending" ? "Descending" : "Ascending", "IncludeItemTypes": query.kind == "movie" ? "Movie" : query.kind == "series" ? "Series" : "Movie,Series"]
         if let parent = query.parentID { try Self.validID(parent); params["ParentId"] = parent }
         if let search = query.search?.trimmingCharacters(in: .whitespacesAndNewlines), !search.isEmpty { params["SearchTerm"] = String(search.prefix(256)) }
@@ -346,12 +346,12 @@ actor MediaService {
         if failures.count == results.count, let error = failures.first { throw error }
         let values = results.map { (try? $0.get()) ?? [] }
         let (resume, latest, movies, series, views) = (values[0], values[1], values[2], values[3], values[4])
-        let sectionNames = ["继续观看", "最近添加", "电影", "剧集", "媒体库"]
+        let sectionNames = [L10n.service("home.resume"), L10n.service("home.latest"), L10n.service("home.movies"), L10n.service("home.series"), L10n.service("home.libraries")]
         let unavailable = zip(sectionNames, results).compactMap { name, result -> String? in
             if case .failure = result { return name }
             return nil
         }
-        let notice = unavailable.isEmpty ? nil : "\(unavailable.joined(separator: "、"))暂时无法加载，其他内容仍可浏览。请稍后刷新重试。"
+        let notice = unavailable.isEmpty ? nil : L10n.service("home.partialFailure", unavailable.joined(separator: L10n.service("list.separator")))
         return HomeData(featured: (resume + latest + movies).first(where: { $0.backdropURL != nil }) ?? latest.first ?? movies.first, resume: resume, latest: latest, movies: movies, series: series, views: views, notice: notice)
     }
 
@@ -478,7 +478,7 @@ actor MediaService {
         ]
         let body: [String: Any] = ["UserId": auth.session.userID, "MaxStreamingBitrate": bitrate, "StartTimeTicks": 0, "IsPlayback": true, "AutoOpenLiveStream": false, "EnableDirectPlay": true, "EnableDirectStream": true, "EnableTranscoding": true, "DirectPlayProtocols": ["Http"], "DeviceProfile": profile]
         let data = try dictionary(await fetch(auth, path: "Items/\(id)/PlaybackInfo", method: "POST", body: body))
-        if let errorCode = data["ErrorCode"] as? String, !errorCode.isEmpty { throw ServiceError(code: "PLAYBACK_UNSUPPORTED", message: "此媒体无法播放，请检查播放和转码权限。") }
+        if let errorCode = data["ErrorCode"] as? String, !errorCode.isEmpty { throw ServiceError(code: "PLAYBACK_UNSUPPORTED", message: L10n.service("playback.permissions")) }
         let sources = data["MediaSources"] as? [[String: Any]] ?? []
         let directRoutes = sources.compactMap { Self.directRoute($0, itemID: id) }
         let transcoded = sources.compactMap { source -> PlaybackRoute? in
@@ -490,7 +490,7 @@ actor MediaService {
         // Server transcoding is only a fallback, even if it is listed first.
         guard let route = directRoutes.first(where: { !$0.usesMPV }) ?? directRoutes.first ?? transcoded.first,
               let sourceID = route.source["Id"] as? String else {
-            throw ServiceError(code: "PLAYBACK_UNSUPPORTED", message: "服务器没有提供兼容的播放地址。请检查媒体格式、播放权限或服务器转码设置。")
+            throw ServiceError(code: "PLAYBACK_UNSUPPORTED", message: L10n.service("playback.noRoute"))
         }
         try Self.validID(sourceID)
         let source = route.source
@@ -507,7 +507,7 @@ actor MediaService {
         var audio: [AudioTrack] = []
         for stream in source["MediaStreams"] as? [[String: Any]] ?? [] {
             guard let index = stream["Index"] as? Int else { continue }
-            let title = stream["DisplayTitle"] as? String ?? stream["Title"] as? String ?? stream["Language"] as? String ?? "轨道 \(index + 1)"
+            let title = stream["DisplayTitle"] as? String ?? stream["Title"] as? String ?? stream["Language"] as? String ?? L10n.service("media.track", index + 1)
             let language = stream["Language"] as? String
             if stream["Type"] as? String == "Audio" { audio.append(AudioTrack(index: index, title: title, language: language)) }
             if stream["Type"] as? String == "Subtitle", stream["IsTextSubtitleStream"] as? Bool == true,
@@ -526,7 +526,7 @@ actor MediaService {
         try Self.validID(event.mediaSourceID)
         let routes = ["start": "Sessions/Playing", "progress": "Sessions/Playing/Progress", "stop": "Sessions/Playing/Stopped"]
         guard let path = routes[event.type], ["DirectPlay", "DirectStream", "Transcode"].contains(event.playMethod) else {
-            throw ServiceError(code: "INVALID_INPUT", message: "播放事件无效。")
+            throw ServiceError(code: "INVALID_INPUT", message: L10n.service("playback.invalidEvent"))
         }
         let body: [String: Any] = ["ItemId": event.itemID, "MediaSourceId": event.mediaSourceID, "PlaySessionId": event.playSessionID, "PositionTicks": max(0, event.positionTicks), "PlayMethod": event.playMethod, "IsPaused": event.isPaused ?? false, "IsMuted": event.isMuted ?? false, "VolumeLevel": min(100, max(0, event.volumeLevel ?? 100)), "CanSeek": true, "QueueableMediaTypes": ["Video"], "EventName": "TimeUpdate"]
         _ = try await fetch(auth, path: path, method: "POST", body: body)

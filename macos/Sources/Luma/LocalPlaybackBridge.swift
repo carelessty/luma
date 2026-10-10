@@ -8,10 +8,10 @@ final class LocalPlaybackBridge: @unchecked Sendable {
         case missingConverter, conversionFailed(Int32), timedOut, stopped
         var errorDescription: String? {
             switch self {
-            case .missingConverter: return "本地兼容播放需要 FFmpeg。请安装 FFmpeg 后重试。"
-            case .conversionFailed(let code): return "本地媒体转换失败（\(code)），请重试或选择其他版本。"
-            case .timedOut: return "本地媒体转换等待超时，请检查网络后重试。"
-            case .stopped: return "播放准备已取消。"
+            case .missingConverter: return L10n.playback("error.converter.missing")
+            case .conversionFailed(let code): return L10n.playback("error.converter.failed", code)
+            case .timedOut: return L10n.playback("error.converter.timeout")
+            case .stopped: return L10n.playback("error.converter.cancelled")
             }
         }
     }

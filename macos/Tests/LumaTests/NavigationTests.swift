@@ -79,7 +79,7 @@ struct NavigationTests {
             MediaItem(id: "third", title: "Third", kind: .episode, positionTicks: 300, isPlayed: true, seasonNumber: 1, episodeNumber: 3)
         ]
         #expect(DetailController.playbackTarget(for: series, episodes: episodes)?.id == "second")
-        #expect(DetailController.playTitle(for: series, episodes: episodes) == "继续播放 S1 · E2")
+        #expect(DetailController.playTitle(for: series, episodes: episodes) == L10n.ui("detail.episodePlayback", L10n.ui("action.resume"), 1, 2))
         #expect(DetailController.playbackTarget(for: series, episodes: []) == nil)
     }
 
@@ -95,14 +95,14 @@ struct NavigationTests {
         defer { window.close() }
         let root = try #require(window.contentView)
         let buttons = descendants(of: root).compactMap { $0 as? NSButton }
-        let play = try #require(buttons.first { $0.title == "正在载入剧集…" })
-        let favorite = try #require(buttons.first { $0.title == "收藏" || $0.title == "已收藏" })
+        let play = try #require(buttons.first { $0.title == L10n.ui("detail.loadingEpisodes") })
+        let favorite = try #require(buttons.first { $0.title == L10n.ui("favorite.action") || $0.title == L10n.ui("favorite.added") })
         #expect(!play.isEnabled)
         #expect(!favorite.isEnabled)
         for _ in 0..<100 where !play.isEnabled { try await Task.sleep(nanoseconds: 5_000_000) }
         #expect(play.isEnabled)
         #expect(favorite.isEnabled)
-        #expect(play.title == "继续播放 S1 · E1")
+        #expect(play.title == L10n.ui("detail.episodePlayback", L10n.ui("action.resume"), 1, 1))
 
         var changed: MediaItem?
         controller.onChanged = { changed = $0 }
@@ -111,7 +111,7 @@ struct NavigationTests {
         for _ in 0..<100 where changed == nil { try await Task.sleep(nanoseconds: 5_000_000) }
         #expect(changed?.id == item.id)
         #expect(changed?.isFavorite == true)
-        #expect(favorite.title == "已收藏")
+        #expect(favorite.title == L10n.ui("favorite.added"))
     }
 
     @Test func favoriteUpdatesKeepGridScrollAndSelectionAndCanRemoveOneFavorite() throws {
@@ -178,7 +178,7 @@ struct NavigationTests {
             descendants(of: root).compactMap { $0 as? NSCollectionView }.compactMap { $0.dataSource as? MediaGridController }.first
         }
         try await waitUntil { mediaGrid()?.items.count == 40 }
-        let more = try #require(descendants(of: root).compactMap { $0 as? NSButton }.first { $0.title == "载入更多" })
+        let more = try #require(descendants(of: root).compactMap { $0 as? NSButton }.first { $0.title == L10n.ui("action.loadMore") })
         let search = try #require(window.toolbar?.items.compactMap { $0 as? NSSearchToolbarItem }.first?.searchField)
         #expect(more.isEnabled)
         more.performClick(nil)

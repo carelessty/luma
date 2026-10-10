@@ -156,7 +156,7 @@ final class BackendTests {
             Issue.record("Rejected empty password must not authenticate")
         } catch let error as ServiceError {
             #expect(error.code == "AUTH_FAILED")
-            #expect(error.message.contains("空密码"))
+            #expect(error.message == L10n.service("auth.emptyPassword"))
         }
         #expect(try await client.session() == nil)
         #expect(EmbyMockProtocol.recorded().count == 1)
@@ -231,7 +231,7 @@ final class BackendTests {
         #expect(home.movies.count == 4)
         #expect(home.series.count == 2)
         #expect(home.resume.count == 3)
-        let found = try await client.library(query: LibraryQuery(search: "2025 科幻"))
+        let found = try await client.library(query: LibraryQuery(search: "2025 " + L10n.service("demo.genre.scifi")))
         #expect(found.items.map(\.id) == ["demo-voyage"])
         let page = try await client.library(query: LibraryQuery(startIndex: 1, limit: 2))
         #expect(page.total == 6)
@@ -293,7 +293,7 @@ final class BackendTests {
         #expect(home.latest.map(\.id) == ["movie1"])
         #expect(home.movies.map(\.id) == ["movie1"])
         #expect(home.views.map(\.id) == ["movie1"])
-        #expect(home.notice?.contains("继续观看") == true)
+        #expect(home.notice?.contains(L10n.service("home.resume")) == true)
     }
 
     @Test

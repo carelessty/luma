@@ -16,43 +16,50 @@ final class ConnectController: NSWindowController {
     var onWillChangeSession: (() async -> Void)?
     init(service: MediaService, session: Session?) {
         self.service = service; currentSession = session
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 490, height: 540), styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = "连接 Emby 服务器"
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 570), styleMask: [.titled], backing: .buffered, defer: false)
+        window.title = L10n.ui("connect.windowTitle")
         super.init(window: window)
         let root = NSView(); window.contentView = root
         let icon = NSImageView(image: NSImage(systemSymbolName: "externaldrive.connected.to.line.below", accessibilityDescription: nil)!)
         icon.contentTintColor = .controlAccentColor
         icon.widthAnchor.constraint(equalToConstant: 36).isActive = true; icon.heightAnchor.constraint(equalToConstant: 36).isActive = true
-        let title = UI.label(session == nil ? "连接你的私人影院" : "管理服务器连接", size: 24, weight: .bold)
-        let hint = UI.label(session.map { "当前连接：\($0.serverName)" } ?? "输入 Emby 服务器地址和你的账户。", size: 13, color: .secondaryLabelColor)
-        hint.widthAnchor.constraint(lessThanOrEqualToConstant: 390).isActive = true
+        let title = UI.label(session == nil ? L10n.ui("connect.title") : L10n.ui("connect.manageTitle"), size: 24, weight: .bold)
+        let hint = UI.label(session.map { L10n.ui("connect.current", $0.serverName) } ?? L10n.ui("connect.hint"), size: 13, color: .secondaryLabelColor)
+        for label in [title, hint] {
+            label.maximumNumberOfLines = 2
+            label.lineBreakMode = .byWordWrapping
+            label.widthAnchor.constraint(equalToConstant: 480).isActive = true
+        }
         address.placeholderString = "https://emby.example.com"
         address.stringValue = session?.serverURL ?? UserDefaults.standard.string(forKey: "luma.native.lastServer") ?? ""
-        username.placeholderString = "用户名"
+        username.placeholderString = L10n.ui("connect.username")
         username.stringValue = session?.userName ?? UserDefaults.standard.string(forKey: "luma.native.lastUsername") ?? ""
-        password.placeholderString = "密码"
-        for (field, label) in [(address, "服务器地址"), (username, "用户名"), (password, "密码")] {
+        password.placeholderString = L10n.ui("connect.password")
+        for (field, label) in [(address, L10n.ui("connect.address")), (username, L10n.ui("connect.username")), (password, L10n.ui("connect.password"))] {
             field.controlSize = .large
             field.font = .systemFont(ofSize: 13)
             field.setAccessibilityLabel(label)
-            field.widthAnchor.constraint(equalToConstant: 370).isActive = true
+            field.widthAnchor.constraint(equalToConstant: 480).isActive = true
         }
-        let form = UI.stack([UI.label("服务器地址", size: 12, weight: .medium), address, UI.label("用户名", size: 12, weight: .medium), username, UI.label("密码", size: 12, weight: .medium), password], spacing: 7)
+        let form = UI.stack([UI.label(L10n.ui("connect.address"), size: 12, weight: .medium), address, UI.label(L10n.ui("connect.username"), size: 12, weight: .medium), username, UI.label(L10n.ui("connect.password"), size: 12, weight: .medium), password], spacing: 7)
         form.setCustomSpacing(14, after: address); form.setCustomSpacing(14, after: username)
         errorLabel.maximumNumberOfLines = 3; errorLabel.lineBreakMode = .byWordWrapping
-        errorLabel.widthAnchor.constraint(equalToConstant: 390).isActive = true
-        let security = UI.label("登录凭据安全保存在 macOS 钥匙串，下次启动自动连接。", size: 11, color: .secondaryLabelColor)
+        errorLabel.widthAnchor.constraint(equalToConstant: 480).isActive = true
+        let security = UI.label(L10n.ui("connect.security"), size: 11, color: .secondaryLabelColor)
+        security.maximumNumberOfLines = 3
+        security.lineBreakMode = .byWordWrapping
+        security.widthAnchor.constraint(equalToConstant: 480).isActive = true
         let stack = UI.stack([icon, title, hint, form, security, errorLabel], spacing: 14)
         stack.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(stack)
         NSLayoutConstraint.activate([stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 24), stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 40)])
-        submit.title = session == nil ? "连接" : "切换连接"; submit.bezelStyle = .rounded; submit.keyEquivalent = "\r"; submit.target = self; submit.action = #selector(connect)
-        let cancel = UI.button("取消", target: self, action: #selector(closeSheet)); cancel.keyEquivalent = "\u{1b}"
-        disconnect.title = "断开并忘记"; disconnect.bezelStyle = .rounded; disconnect.target = self; disconnect.action = #selector(disconnectPressed); disconnect.isHidden = session == nil
+        submit.title = session == nil ? L10n.ui("connect.submit") : L10n.ui("connect.switch"); submit.bezelStyle = .rounded; submit.keyEquivalent = "\r"; submit.target = self; submit.action = #selector(connect)
+        let cancel = UI.button(L10n.ui("action.cancel"), target: self, action: #selector(closeSheet)); cancel.keyEquivalent = "\u{1b}"
+        disconnect.title = L10n.ui("connect.disconnect"); disconnect.bezelStyle = .rounded; disconnect.target = self; disconnect.action = #selector(disconnectPressed); disconnect.isHidden = session == nil
         spinner.style = .spinning; spinner.controlSize = .small; spinner.isDisplayedWhenStopped = false
         let buttons = UI.stack([spinner, cancel, submit], vertical: false, spacing: 10)
         buttons.translatesAutoresizingMaskIntoConstraints = false; disconnect.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(buttons); root.addSubview(disconnect)
-        NSLayoutConstraint.activate([buttons.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24), buttons.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -20), disconnect.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24), disconnect.centerYAnchor.constraint(equalTo: buttons.centerYAnchor)])
+        NSLayoutConstraint.activate([buttons.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24), buttons.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -20), disconnect.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24), disconnect.centerYAnchor.constraint(equalTo: buttons.centerYAnchor), disconnect.trailingAnchor.constraint(lessThanOrEqualTo: buttons.leadingAnchor, constant: -12), stack.bottomAnchor.constraint(lessThanOrEqualTo: buttons.topAnchor, constant: -16)])
         window.initialFirstResponder = address
         address.nextKeyView = username; username.nextKeyView = password; password.nextKeyView = submit
     }
@@ -61,7 +68,7 @@ final class ConnectController: NSWindowController {
         // Commit the active field editor before reading or disabling the fields.
         guard window?.makeFirstResponder(nil) != false else { return }
         let server = address.stringValue; let name = username.stringValue; let secret = password.stringValue
-        guard !server.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { errorLabel.stringValue = "请填写服务器地址和用户名。"; return }
+        guard !server.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { errorLabel.stringValue = L10n.ui("connect.missingFields"); return }
         setBusy(true); errorLabel.stringValue = ""
         task = Task { [weak self] in
             guard let self else { return }
@@ -110,7 +117,7 @@ final class DetailController: NSWindowController, NSTableViewDataSource, NSTable
     init(item: MediaItem, service: MediaService) {
         self.item = item; self.service = service
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 740, height: item.kind == .series ? 660 : 470), styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = "影片详情"
+        window.title = L10n.ui("action.details")
         super.init(window: window)
         let root = NSView(); window.contentView = root
         poster.translatesAutoresizingMaskIntoConstraints = false
@@ -125,12 +132,12 @@ final class DetailController: NSWindowController, NSTableViewDataSource, NSTable
         overview.textColor = .labelColor
         overview.textContainerInset = .zero
         overview.textContainer?.lineFragmentPadding = 0
-        overview.setAccessibilityLabel("影片简介")
+        overview.setAccessibilityLabel(L10n.ui("detail.overview"))
         overviewScroll.drawsBackground = false
         overviewScroll.borderType = .noBorder
         overviewScroll.autohidesScrollers = true
-        overviewScroll.setAccessibilityLabel("完整影片简介")
-        play.title = item.kind == .series ? "正在载入剧集…" : (item.positionTicks > 0 ? "继续播放" : "播放")
+        overviewScroll.setAccessibilityLabel(L10n.ui("detail.fullOverview"))
+        play.title = item.kind == .series ? L10n.ui("detail.loadingEpisodes") : (item.positionTicks > 0 ? L10n.ui("action.resume") : L10n.ui("action.play"))
         play.isEnabled = item.kind != .series
         play.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: nil)
         play.imagePosition = .imageLeading; play.bezelStyle = .rounded; play.bezelColor = .controlAccentColor; play.controlSize = .large; play.target = self; play.action = #selector(playPressed)
@@ -147,22 +154,24 @@ final class DetailController: NSWindowController, NSTableViewDataSource, NSTable
         if item.kind == .series { texts.bottomAnchor.constraint(lessThanOrEqualTo: poster.bottomAnchor).isActive = true }
         else { texts.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -70).isActive = true }
         if item.kind == .series {
-            let heading = UI.label("剧集", size: 18, weight: .semibold)
+            let heading = UI.label(L10n.ui("detail.episodesHeading"), size: 18, weight: .semibold)
             let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
             table.addTableColumn(NSTableColumn(identifier: .init("episodes")))
             table.headerView = nil; table.rowHeight = 45; table.style = .inset; table.delegate = self; table.dataSource = self; table.target = self; table.doubleAction = #selector(episodePressed)
-            table.setAccessibilityLabel("剧集列表，双击播放")
+            table.setAccessibilityLabel(L10n.ui("detail.episodesAccessibility"))
             table.onPlaySelection = { [weak self] in self?.playSelectedEpisode() }
             scroll.documentView = table
             [heading, scroll].forEach { $0.translatesAutoresizingMaskIntoConstraints = false; root.addSubview($0) }
             NSLayoutConstraint.activate([heading.leadingAnchor.constraint(equalTo: poster.leadingAnchor), heading.topAnchor.constraint(equalTo: poster.bottomAnchor, constant: 25), scroll.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 8), scroll.leadingAnchor.constraint(equalTo: poster.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: texts.trailingAnchor), scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -75)])
         }
-        let close = UI.button("完成", target: self, action: #selector(closeSheet)); close.keyEquivalent = "\u{1b}"
+        let close = UI.button(L10n.ui("action.done"), target: self, action: #selector(closeSheet)); close.keyEquivalent = "\u{1b}"
+        status.maximumNumberOfLines = 2
+        status.lineBreakMode = .byWordWrapping
         close.translatesAutoresizingMaskIntoConstraints = false; status.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(close); root.addSubview(status)
         NSLayoutConstraint.activate([close.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24), close.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -20), status.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 28), status.trailingAnchor.constraint(lessThanOrEqualTo: close.leadingAnchor, constant: -16), status.centerYAnchor.constraint(equalTo: close.centerYAnchor)])
         update()
-        status.stringValue = "正在获取影片信息…"
+        status.stringValue = L10n.ui("detail.loading")
         task = Task { [weak self] in
             guard let self else { return }
             do {
@@ -175,26 +184,27 @@ final class DetailController: NSWindowController, NSTableViewDataSource, NSTable
                     guard !Task.isCancelled else { return }
                     self.table.reloadData(); self.play.isEnabled = !self.episodes.isEmpty
                     self.play.title = Self.playTitle(for: fullItem, episodes: self.episodes)
-                    self.status.stringValue = "\(self.episodes.count) 集 · 双击一集开始播放"
+                    self.status.stringValue = L10n.ui("detail.episodeCount", self.episodes.count)
                 } else {
                     self.play.title = Self.playTitle(for: fullItem, episodes: [])
-                    self.status.stringValue = item.id.hasPrefix("demo-") ? "预览影片 · 播放为 Sintel 示例短片" : ""
+                    self.status.stringValue = item.id.hasPrefix("demo-") ? L10n.ui("detail.previewNotice") : ""
                 }
             } catch {
                 guard !Task.isCancelled else { return }
                 self.status.stringValue = error.localizedDescription
-                if self.item.kind == .series { self.play.title = "暂无可播放剧集" }
+                if self.item.kind == .series { self.play.title = L10n.ui("detail.noEpisodes") }
             }
         }
     }
     required init?(coder: NSCoder) { fatalError() }
     private func update() {
         titleLabel.stringValue = item.title
-        metadata.stringValue = [item.originalTitle ?? "", item.metadataText].filter { !$0.isEmpty }.joined(separator: "\n")
-        let description = item.overview.isEmpty ? "这部影片暂时没有简介。" : item.overview
+        let originalTitle = item.originalTitle == item.title ? "" : (item.originalTitle ?? "")
+        metadata.stringValue = [originalTitle, item.metadataText].filter { !$0.isEmpty }.joined(separator: "\n")
+        let description = item.overview.isEmpty ? L10n.ui("detail.noOverview") : item.overview
         if overview.string != description { overview.string = description }
         poster.setImage(item.imageURL, pixels: 600)
-        favorite.title = item.isFavorite ? "已收藏" : "收藏"
+        favorite.title = item.isFavorite ? L10n.ui("favorite.added") : L10n.ui("favorite.action")
         favorite.image = NSImage(systemSymbolName: item.isFavorite ? "heart.fill" : "heart", accessibilityDescription: nil)
     }
     @objc private func favoritePressed() {
@@ -214,11 +224,11 @@ final class DetailController: NSWindowController, NSTableViewDataSource, NSTable
             ?? episodes.first(where: { !$0.isPlayed }) ?? episodes.first
     }
     static func playTitle(for item: MediaItem, episodes: [MediaItem]) -> String {
-        guard let target = playbackTarget(for: item, episodes: episodes) else { return "暂无可播放剧集" }
-        let action = target.positionTicks > 0 && !target.isPlayed ? "继续播放" : "播放"
+        guard let target = playbackTarget(for: item, episodes: episodes) else { return L10n.ui("detail.noEpisodes") }
+        let action = target.positionTicks > 0 && !target.isPlayed ? L10n.ui("action.resume") : L10n.ui("action.play")
         guard item.kind == .series else { return action }
         guard let number = target.episodeNumber else { return action }
-        return "\(action) S\(target.seasonNumber ?? 1) · E\(number)"
+        return L10n.ui("detail.episodePlayback", action, target.seasonNumber ?? 1, number)
     }
     @objc private func playPressed() {
         let target = Self.playbackTarget(for: item, episodes: episodes)
@@ -230,9 +240,9 @@ final class DetailController: NSWindowController, NSTableViewDataSource, NSTable
     func numberOfRows(in tableView: NSTableView) -> Int { episodes.count }
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let episode = episodes[row]
-        let number = "S\(episode.seasonNumber ?? 1) · E\(episode.episodeNumber ?? row + 1)"
-        let label = UI.label("\(number)   \(episode.title)", size: 13, weight: .medium)
-        let duration = UI.label(episode.isPlayed ? "已看完" : episode.durationLabel, size: 11, color: .secondaryLabelColor)
+        let number = L10n.ui("detail.episodeNumber", episode.seasonNumber ?? 1, episode.episodeNumber ?? row + 1)
+        let label = UI.label(L10n.ui("detail.episodeTitle", number, episode.title), size: 13, weight: .medium)
+        let duration = UI.label(episode.isPlayed ? L10n.ui("detail.watched") : episode.durationLabel, size: 11, color: .secondaryLabelColor)
         let stack = UI.stack([label, duration], spacing: 4)
         return stack
     }
@@ -249,33 +259,35 @@ final class EpisodeTableView: NSTableView {
 @MainActor
 final class SettingsController: NSWindowController {
     private let bitrate = NSPopUpButton()
-    private let autoplay = NSButton(checkboxWithTitle: "一集结束后，自动播放下一集", target: nil, action: nil)
-    private let subtitles = NSButton(checkboxWithTitle: "优先显示默认字幕", target: nil, action: nil)
+    private let autoplay = NSButton(checkboxWithTitle: L10n.ui("settings.autoplay"), target: nil, action: nil)
+    private let subtitles = NSButton(checkboxWithTitle: L10n.ui("settings.subtitles"), target: nil, action: nil)
     private let appearance = NSPopUpButton()
     private let wheelSpeed = NSPopUpButton()
     private var preferences = Preferences.load()
     init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 470, height: 400), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Luma 设置"; window.isReleasedWhenClosed = false; window.center()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 410), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = L10n.ui("settings.windowTitle"); window.isReleasedWhenClosed = false; window.center()
         super.init(window: window)
         let root = NSView(); window.contentView = root
-        bitrate.addItems(withTitles: ["8 Mbps · 节省流量", "20 Mbps · 均衡", "40 Mbps · 高画质", "80 Mbps · 最高画质"])
+        bitrate.addItems(withTitles: [L10n.ui("settings.bitrate.low"), L10n.ui("settings.bitrate.balanced"), L10n.ui("settings.bitrate.high"), L10n.ui("settings.bitrate.highest")])
         let values = [8,20,40,80]; bitrate.selectItem(at: values.firstIndex(of: preferences.maxBitrateMbps) ?? 2)
         autoplay.state = preferences.autoplayNext ? .on : .off
         subtitles.state = preferences.defaultSubtitle ? .on : .off
-        appearance.addItems(withTitles: ["跟随系统", "浅色", "深色"])
+        appearance.addItems(withTitles: [L10n.ui("settings.appearance.system"), L10n.ui("settings.appearance.light"), L10n.ui("settings.appearance.dark")])
         appearance.selectItem(at: UserDefaults.standard.integer(forKey: "luma.native.appearance"))
-        wheelSpeed.addItems(withTitles: ["更慢", "较慢 · 适合远程", "稍慢", "原始速度"])
+        wheelSpeed.addItems(withTitles: [L10n.ui("settings.wheel.slowest"), L10n.ui("settings.wheel.remote"), L10n.ui("settings.wheel.slower"), L10n.ui("settings.wheel.original")])
         wheelSpeed.selectItem(at: WheelScrollSettings.multipliers.firstIndex(of: Double(WheelScrollSettings.pixelMultiplier)) ?? 3)
-        wheelSpeed.toolTip = "调整远程控制等像素滚轮的移动距离；触控板手势和系统惯性保持原样。"
+        wheelSpeed.toolTip = L10n.ui("settings.wheel.help")
         for control in [bitrate, autoplay, subtitles, appearance, wheelSpeed] as [NSControl] { control.target = self; control.action = #selector(save) }
-        let title = UI.label("恰到好处的观影体验", size: 21, weight: .semibold)
-        let grid = NSGridView(views: [[UI.label("外观"), appearance], [UI.label("最高码率"), bitrate], [UI.label("滚轮速度"), wheelSpeed]])
+        let title = UI.label(L10n.ui("settings.title"), size: 21, weight: .semibold)
+        let grid = NSGridView(views: [[UI.label(L10n.ui("settings.appearance")), appearance], [UI.label(L10n.ui("settings.bitrate")), bitrate], [UI.label(L10n.ui("settings.wheel")), wheelSpeed]])
         grid.rowSpacing = 16; grid.columnSpacing = 20
         grid.column(at: 0).xPlacement = .trailing
-        let note = UI.label("画质取决于片源、网络和服务器的转码能力。\n设置会自动保存。", size: 12, color: .secondaryLabelColor)
+        let note = UI.label(L10n.ui("settings.note"), size: 12, color: .secondaryLabelColor)
         note.maximumNumberOfLines = 3
+        note.lineBreakMode = .byWordWrapping
         let stack = UI.stack([title, grid, autoplay, subtitles, note], spacing: 22)
+        note.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         stack.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(stack)
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30), stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30), stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 28)])
     }

@@ -14,13 +14,13 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
     private let localVideoView = NativeVideoView()
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private let spinner = NSProgressIndicator()
-    private let retryButton = NSButton(title: "重试", target: nil, action: nil)
+    private let retryButton = NSButton(title: L10n.playback("action.retry"), target: nil, action: nil)
     private let subtitleMenu = NSPopUpButton(frame: .zero, pullsDown: false)
     private let audioMenu = NSPopUpButton(frame: .zero, pullsDown: false)
     private let captionView = CaptionView()
     private let demoLabel = NSTextField(labelWithString: "")
     private let sourceTimeline = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
-    private let sourceTime = NSTextField(labelWithString: "00:00 / 00:00")
+    private let sourceTime = NSTextField(labelWithString: L10n.playback("timeline.position.duration", "00:00", "00:00"))
     private let localPlayPause = NSButton()
     private let localVolume = NSSlider(value: 1, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let localControls = NSStackView()
@@ -45,6 +45,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
     private var reporter: PlaybackReporter?
     private var generation = UUID()
     private var hasStarted = false
+    private var playbackCompleted = false
     private var isStarting = false
     private var lastPositionTicks: Int64 = 0
     private var statusObservation: NSKeyValueObservation?
@@ -75,7 +76,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1060, height: 640),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
-        window.title = "Luma 播放器"
+        window.title = L10n.playback("window.title")
         window.minSize = NSSize(width: 560, height: 360)
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenPrimary]
@@ -105,7 +106,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
             window?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
-        setMessage("正在准备播放…", loading: true)
+        setMessage(L10n.playback("status.preparing"), loading: true)
         // Let a superseded request complete so its server transcode can be stopped.
         preparingTasks[ticket] = Task { [weak self] in
             guard let self else { return }
@@ -125,7 +126,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
                         throw error
                     }
                 } else if info.requiresLocalConversion {
-                    setMessage("正在准备兼容播放…", loading: true)
+                    setMessage(L10n.playback("status.preparing.compatibility"), loading: true)
                     let bridge = LocalPlaybackBridge()
                     localBridge = bridge
                     do {
@@ -150,7 +151,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
                 }
             } catch {
                 guard generation == ticket else { return }
-                setMessage((error as? LocalizedError)?.errorDescription ?? "无法准备视频，请检查服务器连接后重试。", loading: false, retry: true)
+                setMessage((error as? LocalizedError)?.errorDescription ?? L10n.playback("error.preparation"), loading: false, retry: true)
             }
         }
     }
@@ -209,6 +210,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         playerBottom?.constant = 0
         info = nil
         hasStarted = false
+        playbackCompleted = false
         isStarting = false
         subtitleDocument = nil
         subtitleGroup = nil
@@ -217,7 +219,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         window?.subtitle = ""
         resetSubtitleMenu()
         audioMenu.removeAllItems()
-        audioMenu.addItem(withTitle: "音轨")
+        audioMenu.addItem(withTitle: L10n.playback("track.audio"))
         audioMenu.isEnabled = false
         spinner.stopAnimation(nil)
         for (command, target) in remoteTargets { command.removeTarget(target) }
@@ -249,7 +251,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         playerView.allowsPictureInPicturePlayback = true
         // Supply the library title and system media-key commands ourselves.
         playerView.updatesNowPlayingInfoCenter = false
-        playerView.setAccessibilityLabel("视频播放器")
+        playerView.setAccessibilityLabel(L10n.playback("accessibility.player"))
         localVideoView.localKeyAction = { [weak self] key in
             guard let self, self.info?.requiresLocalConversion == true else { return false }
             switch key {
@@ -322,11 +324,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         ])
         subtitleMenu.target = self
         subtitleMenu.action = #selector(selectSubtitle)
-        subtitleMenu.setAccessibilityLabel("选择字幕")
+        subtitleMenu.setAccessibilityLabel(L10n.playback("accessibility.subtitles.choose"))
         audioMenu.target = self
         audioMenu.action = #selector(selectAudio)
-        audioMenu.setAccessibilityLabel("选择音轨")
-        audioMenu.addItem(withTitle: "音轨")
+        audioMenu.setAccessibilityLabel(L10n.playback("accessibility.audio.choose"))
+        audioMenu.addItem(withTitle: L10n.playback("track.audio"))
         audioMenu.isEnabled = false
         resetSubtitleMenu()
         let toolbar = NSToolbar(identifier: "LumaPlayerToolbar")
@@ -347,11 +349,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         localVideoView.isHidden = true
         localControls.isHidden = false
         playerBottom?.constant = -48
-        window?.subtitle = "直接播放 · 原画质"
+        window?.subtitle = L10n.playback("status.direct.original")
         sourceTimeline.maxValue = max(1, Double(item?.durationTicks ?? 0) / 10_000_000)
         sourceTimeline.isEnabled = (item?.durationTicks ?? 0) > 0
         sourceTimeline.doubleValue = Double(info.startTicks) / 10_000_000
-        sourceTime.stringValue = "\(Self.timeText(sourceTimeline.doubleValue)) / \(Self.timeText(sourceTimeline.maxValue))"
+        sourceTime.stringValue = L10n.playback("timeline.position.duration", Self.timeText(sourceTimeline.doubleValue), Self.timeText(sourceTimeline.maxValue))
         localSpeed.selectItem(withTag: Int(desiredRate * 100))
         localVolume.doubleValue = Double(savedMuted ? 0 : savedVolume)
         let video = engine.view
@@ -394,13 +396,14 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
             let completedItem = self.item
             let shouldContinue = self.preferences.autoplayNext && completedItem?.kind == .episode
             self.stop()
-            self.setMessage("播放完毕", loading: false, retry: true)
+            self.playbackCompleted = true
+            self.setMessage(L10n.playback("status.completed"), loading: false, retry: true)
             if shouldContinue, let completedItem { self.onNextEpisode?(completedItem) }
         }
         engine.onError = { [weak self] message in
             guard let self, self.generation == ticket else { return }
             self.stop()
-            self.setMessage(message + " 将从刚才的位置重试。", loading: false, retry: true)
+            self.setMessage(L10n.playback("error.retry.resume", message), loading: false, retry: true)
         }
         engine.onWarning = { [weak self] message in
             guard let self, self.generation == ticket else { return }
@@ -408,9 +411,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
             self.refreshMPVTracks()
             guard let window = self.window, window.attachedSheet == nil else { return }
             let alert = NSAlert()
-            alert.messageText = "操作未完成"
+            alert.messageText = L10n.playback("error.operation.title")
             alert.informativeText = message
-            alert.addButton(withTitle: "好")
+            alert.addButton(withTitle: L10n.playback("action.ok"))
             alert.beginSheetModal(for: window)
         }
         engine.setVolume(Double(savedVolume))
@@ -448,7 +451,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         }
         if controlsChanged || Date().timeIntervalSince(lastNowPlayingUpdate) >= 1 { updateNowPlaying() }
         let hardware = !mpv.hardwareDecoder.isEmpty && mpv.hardwareDecoder != "no"
-        window?.subtitle = mpv.isBuffering ? "正在缓冲…" : (hardware ? "直接播放 · 硬件解码" : "直接播放 · 原画质")
+        window?.subtitle = mpv.isBuffering ? L10n.playback("status.buffering") : (hardware ? L10n.playback("status.direct.hardware") : L10n.playback("status.direct.original"))
         if mpv.isBuffering && !mpv.isPaused { spinner.startAnimation(nil) }
         else { spinner.stopAnimation(nil) }
     }
@@ -481,7 +484,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
             audioMenu.appendTrackItem(title: track.title, tag: track.id)
             if track.selected { audioMenu.select(audioMenu.lastItem) }
         }
-        if audioMenu.numberOfItems == 0 { audioMenu.addItem(withTitle: "无音轨") }
+        if audioMenu.numberOfItems == 0 { audioMenu.addItem(withTitle: L10n.playback("track.audio.none")) }
         audioMenu.isEnabled = mpv.audioTracks.count > 1
         resetSubtitleMenu()
         for track in mpv.subtitleTracks {
@@ -492,7 +495,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         // Emby may expose sidecar subtitles that are absent from the container.
         for track in info?.subtitles ?? [] {
             subtitleChoices.append(.external(track))
-            subtitleMenu.appendTrackItem(title: "\(track.title) · 服务器字幕")
+            subtitleMenu.appendTrackItem(title: L10n.playback("track.subtitles.server", track.title))
         }
         subtitleMenu.isEnabled = subtitleChoices.count > 1
     }
@@ -504,10 +507,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
 
     private func install(_ info: PlaybackInfo, ticket: UUID) {
         self.info = info
-        let demoTitle = info.label ?? "演示视频 · Sintel"
+        let demoTitle = info.label ?? L10n.playback("demo.title", "Sintel")
         demoLabel.stringValue = demoTitle
         demoLabel.isHidden = !info.isDemo
-        window?.subtitle = info.isDemo ? demoTitle : (info.requiresLocalConversion ? "本地兼容播放 · 原画质" : "")
+        window?.subtitle = info.isDemo ? demoTitle : (info.requiresLocalConversion ? L10n.playback("status.local.compatibility") : "")
         localControls.isHidden = !info.requiresLocalConversion
         playerBottom?.constant = info.requiresLocalConversion ? -48 : 0
         // AVKit's floating scrubber traps on an indefinite live-HLS time on
@@ -577,7 +580,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
                 guard let self, self.generation == ticket else { return }
                 if let error = self.localBridge?.failureDescription {
                     self.stop()
-                    self.setMessage(error + " 将从刚才的位置重试。", loading: false, retry: true)
+                    self.setMessage(L10n.playback("error.retry.resume", error), loading: false, retry: true)
                     return
                 }
                 self.captionView.text = self.subtitleDocument?.text(at: time.seconds + Double(self.sourceOffsetTicks) / 10_000_000) ?? ""
@@ -593,7 +596,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
                 let completedItem = self.item
                 let shouldContinue = self.preferences.autoplayNext && completedItem?.kind == .episode
                 self.stop()
-                self.setMessage("播放完毕", loading: false, retry: true)
+                self.playbackCompleted = true
+                self.setMessage(L10n.playback("status.completed"), loading: false, retry: true)
                 if shouldContinue, let completedItem { self.onNextEpisode?(completedItem) }
             }
         }
@@ -674,7 +678,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         }
         let wasLocal = info?.requiresLocalConversion == true
         stop()
-        setMessage(wasLocal ? "兼容播放已中断，请检查网络后重试。将从刚才的位置继续。" : "此视频暂时无法播放。请确认 Emby 服务器允许转码，然后重试。", loading: false, retry: true)
+        setMessage(wasLocal ? L10n.playback("error.local.interrupted") : L10n.playback("error.playback.unavailable"), loading: false, retry: true)
     }
 
     private func setMessage(_ text: String, loading: Bool, retry: Bool = false) {
@@ -687,14 +691,14 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
     @objc private func retryPlayback() {
         guard var item else { return }
         // Replaying a completed item should start from its beginning.
-        if messageLabel.stringValue == "播放完毕" { item.positionTicks = 0 }
+        if playbackCompleted { item.positionTicks = 0 }
         play(item, preferences: preferences)
     }
 
     private func resetSubtitleMenu() {
         subtitleChoices = [.off]
         subtitleMenu.removeAllItems()
-        subtitleMenu.addItem(withTitle: "字幕：关闭")
+        subtitleMenu.addItem(withTitle: L10n.playback("track.subtitles.off"))
         subtitleMenu.isEnabled = false
     }
 
@@ -773,9 +777,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
                 self.subtitleMenu.selectItem(at: 0)
                 self.savedSubtitleKey = "off"
                 let alert = NSAlert()
-                alert.messageText = "无法载入字幕"
-                alert.informativeText = "该字幕无法读取，请选择其他字幕或稍后重试。"
-                alert.addButton(withTitle: "好")
+                alert.messageText = L10n.playback("error.subtitle.title")
+                alert.informativeText = L10n.playback("error.subtitle.message")
+                alert.addButton(withTitle: L10n.playback("action.ok"))
                 if let window = self.window { await alert.beginSheetModal(for: window) }
             }
         }
@@ -793,7 +797,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         guard ["subtitles", "audio"].contains(itemIdentifier.rawValue) else { return nil }
         let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-        item.label = itemIdentifier.rawValue == "audio" ? "音轨" : "字幕"
+        item.label = itemIdentifier.rawValue == "audio" ? L10n.playback("track.audio") : L10n.playback("track.subtitles")
         item.view = itemIdentifier.rawValue == "audio" ? audioMenu : subtitleMenu
         return item
     }
@@ -843,29 +847,29 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         localPlayPause.target = self
         localPlayPause.action = #selector(toggleLocalPlayback)
         localPlayPause.image = NSImage(systemSymbolName: "pause.fill", accessibilityDescription: nil)
-        localPlayPause.setAccessibilityLabel("暂停")
+        localPlayPause.setAccessibilityLabel(L10n.playback("action.pause"))
         let back = UI.button("", symbol: "gobackward.15", target: self, action: #selector(skipBackward))
         let forward = UI.button("", symbol: "goforward.15", target: self, action: #selector(skipForward))
-        back.setAccessibilityLabel("后退 15 秒")
-        forward.setAccessibilityLabel("前进 15 秒")
+        back.setAccessibilityLabel(L10n.playback("accessibility.skip.backward", 15))
+        forward.setAccessibilityLabel(L10n.playback("accessibility.skip.forward", 15))
         sourceTimeline.target = self
         sourceTimeline.action = #selector(sourceSeekChanged)
         sourceTimeline.isContinuous = false
-        sourceTimeline.setAccessibilityLabel("整片播放进度")
+        sourceTimeline.setAccessibilityLabel(L10n.playback("accessibility.timeline"))
         sourceTime.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         sourceTime.textColor = .secondaryLabelColor
         sourceTime.setContentHuggingPriority(.required, for: .horizontal)
         localVolume.target = self
         localVolume.action = #selector(localVolumeChanged)
-        localVolume.setAccessibilityLabel("音量")
+        localVolume.setAccessibilityLabel(L10n.playback("accessibility.volume"))
         localVolume.widthAnchor.constraint(equalToConstant: 64).isActive = true
         for rate in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0] {
-            localSpeed.addItem(withTitle: "\(rate.formatted())×")
+            localSpeed.addItem(withTitle: L10n.playback("speed.multiplier", rate.formatted()))
             localSpeed.lastItem?.tag = Int(rate * 100)
         }
         localSpeed.target = self
         localSpeed.action = #selector(localSpeedChanged)
-        localSpeed.setAccessibilityLabel("播放速度")
+        localSpeed.setAccessibilityLabel(L10n.playback("accessibility.speed"))
         localControls.orientation = .horizontal
         localControls.alignment = .centerY
         localControls.spacing = 10
@@ -886,10 +890,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         let elapsed = Double(positionTicks()) / 10_000_000
         // Leave the thumb under the user's control during a drag.
         if NSApp.currentEvent?.type != .leftMouseDragged { sourceTimeline.doubleValue = elapsed }
-        sourceTime.stringValue = "\(Self.timeText(elapsed)) / \(Self.timeText(sourceTimeline.maxValue))"
+        sourceTime.stringValue = L10n.playback("timeline.position.duration", Self.timeText(elapsed), Self.timeText(sourceTimeline.maxValue))
         let paused = playbackPaused
         localPlayPause.image = NSImage(systemSymbolName: paused ? "play.fill" : "pause.fill", accessibilityDescription: nil)
-        localPlayPause.setAccessibilityLabel(paused ? "播放" : "暂停")
+        localPlayPause.setAccessibilityLabel(paused ? L10n.playback("action.play") : L10n.playback("action.pause"))
         if NSApp.currentEvent?.type != .leftMouseDragged {
             if let mpv { localVolume.doubleValue = mpv.isMuted ? 0 : mpv.volume }
             else if let player { localVolume.doubleValue = Double(player.isMuted ? 0 : player.volume) }
@@ -898,8 +902,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
 
     private static func timeText(_ seconds: Double) -> String {
         let value = Int(max(0, seconds.isFinite ? seconds : 0))
-        if value >= 3600 { return String(format: "%d:%02d:%02d", value / 3600, value / 60 % 60, value % 60) }
-        return String(format: "%02d:%02d", value / 60, value % 60)
+        if value >= 3600 { return L10n.playback("time.hours.minutes.seconds", value / 3600, value / 60 % 60, value % 60) }
+        return L10n.playback("time.minutes.seconds", value / 60, value % 60)
     }
 
     @objc private func sourceSeekChanged() { seekSource(to: sourceTimeline.doubleValue) }
@@ -964,7 +968,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSTool
         let rate = mpv.map { $0.isPaused || $0.isBuffering ? 0 : $0.speed } ?? Double(player?.rate ?? 0)
         let defaultRate = mpv?.speed ?? Double(player?.defaultRate ?? 1)
         var metadata: [String: Any] = [
-            MPMediaItemPropertyTitle: info?.isDemo == true ? info?.label ?? "演示视频 · Sintel" : item.title,
+            MPMediaItemPropertyTitle: info?.isDemo == true ? info?.label ?? L10n.playback("demo.title", "Sintel") : item.title,
             MPMediaItemPropertyArtist: item.seriesTitle ?? "Luma",
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.video.rawValue,
             MPNowPlayingInfoPropertyExternalContentIdentifier: item.id,
@@ -993,7 +997,7 @@ private final class NativeVideoView: NSView {
         wantsLayer = true
         layer = playerLayer
         playerLayer.videoGravity = .resizeAspect
-        setAccessibilityLabel("视频播放器")
+        setAccessibilityLabel(L10n.playback("accessibility.player"))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
     var localKeyAction: ((UInt16) -> Bool)?
@@ -1114,7 +1118,7 @@ private final class CaptionView: NSView {
         super.init(frame: frameRect)
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel("字幕")
+        setAccessibilityLabel(L10n.playback("track.subtitles"))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
 

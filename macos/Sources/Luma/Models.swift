@@ -33,8 +33,8 @@ struct MediaItem: Identifiable, Codable, Hashable, Sendable {
     }
     var durationLabel: String {
         let minutes = durationMinutes
-        if minutes >= 60 { return "\(minutes / 60) 小时 \(minutes % 60) 分钟" }
-        return minutes > 0 ? "\(minutes) 分钟" : ""
+        if minutes >= 60 { return L10n.playback("duration.hours.minutes", minutes / 60, minutes % 60) }
+        return minutes > 0 ? L10n.playback("duration.minutes", minutes) : ""
     }
 }
 

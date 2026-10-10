@@ -3,9 +3,9 @@ name: Native macOS checks
 on:
   push:
     branches: [main, master]
-    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'public/media/**', '.github/workflows/macos-native.yml']
+    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'LICENSE', 'docs/assets.md', '.github/workflows/macos-native.yml']
   pull_request:
-    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'public/media/**', '.github/workflows/macos-native.yml']
+    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'LICENSE', 'docs/assets.md', '.github/workflows/macos-native.yml']
   workflow_dispatch:
 
 permissions:

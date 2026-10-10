@@ -94,7 +94,7 @@ final class HeroView: NSView {
     private let titleLabel = UI.label(size: 34, weight: .bold, color: .white)
     private let metadata = UI.label(size: 13, weight: .medium, color: .init(white: 1, alpha: 0.78))
     private let summary = UI.label(size: 13, color: .init(white: 1, alpha: 0.85))
-    private let eyebrow = UI.label("为此刻，选一部好电影", size: 12, weight: .semibold, color: .init(white: 1, alpha: 0.8))
+    private let eyebrow = UI.label(L10n.ui("hero.eyebrow"), size: 12, weight: .semibold, color: .init(white: 1, alpha: 0.8))
     private var item: MediaItem?
     var onPlay: ((MediaItem) -> Void)?
     var onDetail: ((MediaItem) -> Void)?
@@ -113,10 +113,10 @@ final class HeroView: NSView {
         summary.lineBreakMode = .byWordWrapping
         summary.cell?.wraps = true
         summary.cell?.isScrollable = false
-        let play = UI.button("播放", symbol: "play.fill", target: self, action: #selector(playPressed))
+        let play = UI.button(L10n.ui("action.play"), symbol: "play.fill", target: self, action: #selector(playPressed))
         play.bezelColor = .controlAccentColor
         play.controlSize = .large
-        let detail = UI.button("影片详情", symbol: "info.circle", target: self, action: #selector(detailPressed))
+        let detail = UI.button(L10n.ui("action.details"), symbol: "info.circle", target: self, action: #selector(detailPressed))
         detail.controlSize = .large
         let buttons = UI.stack([play, detail], vertical: false)
         let actions: NSView
@@ -151,7 +151,7 @@ final class HeroView: NSView {
         titleLabel.stringValue = item.title
         metadata.stringValue = item.metadataText
         summary.stringValue = item.overview
-        eyebrow.stringValue = demo ? "精选预览 · 虚构影片" : "从你的资料库，发现好故事"
+        eyebrow.stringValue = demo ? L10n.ui("hero.previewEyebrow") : L10n.ui("hero.libraryEyebrow")
         artwork.setImage(item.backdropURL ?? item.imageURL, pixels: 1800)
     }
     @objc private func playPressed() { if let item { onPlay?(item) } }
@@ -162,7 +162,7 @@ extension MediaItem {
     var metadataText: String {
         var parts: [String] = []
         if let year { parts.append(String(year)) }
-        if durationTicks > 0 { parts.append(durationTicks < 600_000_000 ? "不到 1 分钟" : "\(Int(durationTicks / 600_000_000)) 分钟") }
+        if durationTicks > 0 { parts.append(durationTicks < 600_000_000 ? L10n.ui("duration.underMinute") : L10n.ui("duration.minutes", Int(durationTicks / 600_000_000))) }
         if let rating, rating > 0 { parts.append(String(format: "★ %.1f", rating)) }
         parts.append(contentsOf: genres.prefix(2))
         return parts.joined(separator: "  ·  ")
@@ -211,7 +211,7 @@ final class MediaCard: NSCollectionViewItem {
         progress.translatesAutoresizingMaskIntoConstraints = false
         artwork.addSubview(progress)
         NSLayoutConstraint.activate([progress.leadingAnchor.constraint(equalTo: artwork.leadingAnchor, constant: 10), progress.trailingAnchor.constraint(equalTo: artwork.trailingAnchor, constant: -10), progress.bottomAnchor.constraint(equalTo: artwork.bottomAnchor, constant: -8)])
-        heart.image = NSImage(systemSymbolName: "heart.fill", accessibilityDescription: "已收藏")
+        heart.image = NSImage(systemSymbolName: "heart.fill", accessibilityDescription: L10n.ui("favorite.added"))
         heart.contentTintColor = .white
         heart.shadow = NSShadow()
         heart.translatesAutoresizingMaskIntoConstraints = false
@@ -225,18 +225,18 @@ final class MediaCard: NSCollectionViewItem {
     func configure(_ item: MediaItem, landscape: Bool = false) {
         self.item = item
         name.stringValue = item.title
-        subtitle.stringValue = landscape && item.positionTicks > 0 ? (item.positionTicks < 600_000_000 ? "已观看 \(Int(item.positionTicks / 10_000_000)) 秒" : "已观看 \(Int(item.positionTicks / 600_000_000)) 分钟") : item.shortMetadata
+        subtitle.stringValue = landscape && item.positionTicks > 0 ? (item.positionTicks < 600_000_000 ? L10n.ui("card.watchedSeconds", Int(item.positionTicks / 10_000_000)) : L10n.ui("card.watchedMinutes", Int(item.positionTicks / 600_000_000))) : item.shortMetadata
         artwork.setImage(landscape ? (item.backdropURL ?? item.imageURL) : item.imageURL, pixels: landscape ? 700 : 500)
         progress.doubleValue = item.durationTicks > 0 ? min(1, Double(item.positionTicks) / Double(item.durationTicks)) : 0
         progress.isHidden = item.positionTicks <= 0
         heart.isHidden = !item.isFavorite
         view.setAccessibilityElement(true)
-        view.setAccessibilityLabel("\(item.title)，\(subtitle.stringValue)")
+        view.setAccessibilityLabel(L10n.ui("card.accessibilityLabel", item.title, subtitle.stringValue))
         view.setAccessibilityRole(.button)
-        view.setAccessibilityHelp("双击查看详情，回车打开，空格播放")
+        view.setAccessibilityHelp(L10n.ui("card.accessibilityHelp"))
         view.toolTip = item.title
         let menu = NSMenu()
-        for (title, selector) in [("播放", #selector(playItem)), ("显示详情", #selector(openItem)), (item.isFavorite ? "取消收藏" : "加入收藏", #selector(favoriteItem))] {
+        for (title, selector) in [(L10n.ui("action.play"), #selector(playItem)), (L10n.ui("action.showDetails"), #selector(openItem)), (item.isFavorite ? L10n.ui("favorite.remove") : L10n.ui("favorite.add"), #selector(favoriteItem))] {
             let entry = NSMenuItem(title: title, action: selector, keyEquivalent: "")
             entry.target = self
             menu.addItem(entry)

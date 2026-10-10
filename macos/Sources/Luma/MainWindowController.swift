@@ -6,8 +6,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
     private let sidebar = SidebarController()
     private let split = NSSplitViewController()
     private let content = NSViewController()
-    private let titleLabel = UI.label("现在观看", size: 30, weight: .bold)
-    private let subtitleLabel = UI.label("好故事，随时继续。", size: 13, color: .secondaryLabelColor)
+    private let titleLabel = UI.label(L10n.ui("navigation.watchNow"), size: 30, weight: .bold)
+    private let subtitleLabel = UI.label(L10n.ui("home.tagline"), size: 13, color: .secondaryLabelColor)
     private let statusLabel = UI.label(size: 12, color: .secondaryLabelColor)
     private let body = NSView()
     private let spinner = NSProgressIndicator()
@@ -43,7 +43,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
         self.service = service
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1260, height: 850), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "Luma"
-        window.subtitle = "你的私人影院"
+        window.subtitle = L10n.ui("window.tagline")
         window.titleVisibility = .visible
         window.toolbarStyle = .unified
         window.minSize = NSSize(width: 880, height: 640)
@@ -53,7 +53,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
         super.init(window: window)
         configureContent()
         let side = NSSplitViewItem(sidebarWithViewController: sidebar)
-        side.minimumThickness = 190
+        side.minimumThickness = 210
         side.maximumThickness = 280
         side.canCollapse = true
         side.preferredThicknessFraction = 0.18
@@ -84,11 +84,19 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
     required init?(coder: NSCoder) { fatalError() }
     private func configureContent() {
         content.view = NSView()
-        sort.addItems(withTitles: ["最近添加", "名称", "发行年份", "评分"])
+        sort.addItems(withTitles: [L10n.ui("sort.recent"), L10n.ui("sort.name"), L10n.ui("sort.year"), L10n.ui("sort.rating")])
         sort.target = self; sort.action = #selector(sortChanged)
-        sort.setAccessibilityLabel("排序方式")
+        sort.setAccessibilityLabel(L10n.ui("sort.accessibility"))
         sort.isHidden = true
         let heading = UI.stack([titleLabel, subtitleLabel], spacing: 6)
+        titleLabel.maximumNumberOfLines = 2
+        titleLabel.lineBreakMode = .byWordWrapping
+        subtitleLabel.maximumNumberOfLines = 2
+        subtitleLabel.lineBreakMode = .byWordWrapping
+        NSLayoutConstraint.activate([
+            titleLabel.widthAnchor.constraint(lessThanOrEqualTo: heading.widthAnchor),
+            subtitleLabel.widthAnchor.constraint(lessThanOrEqualTo: heading.widthAnchor)
+        ])
         spinner.style = .spinning; spinner.controlSize = .small; spinner.isDisplayedWhenStopped = false
         [heading, sort, body, statusLabel, spinner].forEach { $0.translatesAutoresizingMaskIntoConstraints = false; content.view.addSubview($0) }
         NSLayoutConstraint.activate([
@@ -104,16 +112,16 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         if id.rawValue == "search" {
             let item = NSSearchToolbarItem(itemIdentifier: id)
-            search.placeholderString = "搜索你的资料库"
+            search.placeholderString = L10n.ui("search.placeholder")
             search.delegate = self
             search.sendsSearchStringImmediately = true
-            search.setAccessibilityLabel("搜索资料库")
+            search.setAccessibilityLabel(L10n.ui("action.searchLibrary"))
             item.searchField = search
             return item
         }
         let item = NSToolbarItem(itemIdentifier: id)
-        if id.rawValue == "refresh" { item.label = "刷新"; item.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "刷新"); item.target = self; item.action = #selector(refreshPressed) }
-        else if id.rawValue == "account" { item.label = "连接服务器"; item.image = NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "管理连接"); item.target = self; item.action = #selector(connectPressed) }
+        if id.rawValue == "refresh" { item.label = L10n.ui("action.refresh"); item.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: L10n.ui("action.refresh")); item.target = self; item.action = #selector(refreshPressed) }
+        else if id.rawValue == "account" { item.label = L10n.ui("action.connect"); item.image = NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: L10n.ui("action.manageConnection")); item.target = self; item.action = #selector(connectPressed) }
         else { return nil }
         // Standard bordered items participate in the system's Liquid Glass
         // toolbar grouping on current macOS, and retain native older styling.
@@ -155,10 +163,10 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
         let current = generation
         let searching = !search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isHome = destination.key == "home" && !searching
-        titleLabel.stringValue = searching ? "搜索结果" : destination.title
-        subtitleLabel.stringValue = searching ? "查找“\(search.stringValue)”" : "好故事，随时继续。"
+        titleLabel.stringValue = searching ? L10n.ui("search.results") : destination.title
+        subtitleLabel.stringValue = searching ? L10n.ui("search.query", search.stringValue) : L10n.ui("home.tagline")
         sort.isHidden = isHome
-        statusLabel.stringValue = "正在载入…"
+        statusLabel.stringValue = L10n.ui("status.loading")
         spinner.startAnimation(nil)
         clearBody()
         let query = makeQuery()
@@ -168,7 +176,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
                 let currentSession = try await self.service.restoreSession()
                 guard current == self.generation, !Task.isCancelled else { return }
                 self.session = currentSession
-                self.window?.subtitle = currentSession?.serverName ?? "预览模式"
+                self.window?.subtitle = currentSession?.serverName ?? L10n.ui("status.preview")
                 self.sidebar.update(session: currentSession, views: self.homeData?.views ?? [])
                 if isHome {
                     let data = try await self.service.home()
@@ -191,12 +199,12 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
                 let savedSession = try? await self.service.session()
                 guard current == self.generation, !Task.isCancelled else { return }
                 self.session = savedSession
-                self.window?.subtitle = savedSession?.serverName ?? "未连接"
+                self.window?.subtitle = savedSession?.serverName ?? L10n.ui("status.disconnected")
                 self.sidebar.update(session: savedSession, views: savedSession == nil ? [] : (self.homeData?.views ?? []))
                 self.spinner.stopAnimation(nil)
                 let needsLogin = (error as? ServiceError)?.code == "AUTH_REQUIRED"
-                self.renderMessage(title: needsLogin ? "请重新登录" : "暂时无法载入", message: error.localizedDescription, symbol: needsLogin ? "person.crop.circle.badge.exclamationmark" : "wifi.exclamationmark", retry: true, reconnect: needsLogin)
-                self.statusLabel.stringValue = savedSession == nil ? "载入失败" : "暂时无法连接 · 已保留上次登录"
+                self.renderMessage(title: needsLogin ? L10n.ui("error.signInRequired") : L10n.ui("error.loadUnavailable"), message: error.localizedDescription, symbol: needsLogin ? "person.crop.circle.badge.exclamationmark" : "wifi.exclamationmark", retry: true, reconnect: needsLogin)
+                self.statusLabel.stringValue = savedSession == nil ? L10n.ui("error.loadFailed") : L10n.ui("status.connectionRetained")
             }
         }
     }
@@ -214,10 +222,10 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
     }
     private func renderHome(_ data: HomeData) {
         clearBody()
-        subtitleLabel.stringValue = session == nil ? "先逛逛，再连接你的私人影院。" : "欢迎回来，\(session!.userName)。"
-        statusLabel.stringValue = data.notice ?? (session == nil ? "预览模式 · 虚构影片 · 播放为 Sintel 示例短片" : "已连接到 \(session!.serverName)")
+        subtitleLabel.stringValue = session == nil ? L10n.ui("home.previewWelcome") : L10n.ui("home.welcome", session!.userName)
+        statusLabel.stringValue = data.notice ?? (session == nil ? L10n.ui("home.previewNotice") : L10n.ui("home.connected", session!.serverName))
         guard data.featured != nil || [data.resume, data.latest, data.movies, data.series].contains(where: { !$0.isEmpty }) else {
-            renderMessage(title: "你的影院，静候开场", message: "服务器中还没有可浏览的影片。添加媒体后，按 ⌘R 刷新。", symbol: "film", retry: true)
+            renderMessage(title: L10n.ui("home.emptyTitle"), message: L10n.ui("home.emptyMessage"), symbol: "film", retry: true)
             return
         }
         let scroll = MediaScrollView()
@@ -238,8 +246,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
             hero.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             hero.heightAnchor.constraint(equalToConstant: 320).isActive = true
         }
-        for (title, items, landscape) in [("继续观看", data.resume, true), ("最近添加", data.latest, false), ("电影之夜", data.movies, false), ("值得追的剧", data.series, false)] where !items.isEmpty {
-            let heading = UI.stack([UI.label(title, size: 20, weight: .bold), UI.label("\(items.count) 部", size: 12, color: .tertiaryLabelColor)], vertical: false, spacing: 10)
+        for (title, items, landscape) in [(L10n.ui("home.continueWatching"), data.resume, true), (L10n.ui("sort.recent"), data.latest, false), (L10n.ui("home.movieNight"), data.movies, false), (L10n.ui("home.showsToWatch"), data.series, false)] where !items.isEmpty {
+            let heading = UI.stack([UI.label(title, size: 20, weight: .bold), UI.label(L10n.ui("home.itemCount", items.count), size: 12, color: .tertiaryLabelColor)], vertical: false, spacing: 10)
             stack.addArrangedSubview(heading)
             stack.setCustomSpacing(12, after: heading)
             let grid = MediaGridController()
@@ -255,14 +263,14 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
     private func renderLibrary() {
         clearBody()
         subtitleLabel.stringValue = librarySubtitle
-        statusLabel.stringValue = libraryItems.isEmpty ? "没有匹配的影片" : "已显示 \(libraryItems.count) / \(total) 部 · 双击查看详情，空格播放"
+        statusLabel.stringValue = libraryItems.isEmpty ? L10n.ui("library.noMatches") : L10n.ui("library.progressHelp", libraryItems.count, total)
         guard !libraryItems.isEmpty else {
-            renderMessage(title: destination.key == "favorites" ? "留住喜欢的故事" : "没有找到影片", message: destination.key == "favorites" ? "在影片详情中点击收藏，喜欢的电影和剧集就会出现在这里。" : "试试其他关键词，或选择另一个资料库。", symbol: destination.key == "favorites" ? "heart" : "magnifyingglass", retry: false)
+            renderMessage(title: destination.key == "favorites" ? L10n.ui("favorites.emptyTitle") : L10n.ui("library.emptyTitle"), message: destination.key == "favorites" ? L10n.ui("favorites.emptyMessage") : L10n.ui("library.emptyMessage"), symbol: destination.key == "favorites" ? "heart" : "magnifyingglass", retry: false)
             return
         }
         let grid = MediaGridController(); wire(grid); content.addChild(grid)
         self.grid = grid
-        let more = UI.button("载入更多", symbol: "plus", target: self, action: #selector(loadMore))
+        let more = UI.button(L10n.ui("action.loadMore"), symbol: "plus", target: self, action: #selector(loadMore))
         more.isHidden = reachedLibraryEnd
         nextButton = more
         [grid.view, more].forEach { $0.translatesAutoresizingMaskIntoConstraints = false; body.addSubview($0) }
@@ -270,8 +278,9 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
         grid.setItems(libraryItems)
     }
     private var librarySubtitle: String {
-        let kind = libraryQuery?.kind == "series" ? "部剧集" : libraryQuery?.kind == "movie" ? "部电影" : "部影片与剧集"
-        return "\(total) \(kind)\(session == nil ? " · 预览资料库" : "")"
+        let key = libraryQuery?.kind == "series" ? "library.count.shows" : libraryQuery?.kind == "movie" ? "library.count.movies" : "library.count.all"
+        let count = L10n.ui(key, total)
+        return session == nil ? L10n.ui("library.previewCount", count) : count
     }
     @objc private func loadMore() {
         guard !loadingMore, !reachedLibraryEnd, var query = libraryQuery else { return }
@@ -292,7 +301,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
                 self.reachedLibraryEnd = additions.isEmpty || self.nextOffset >= page.total
                 self.grid?.setItems(self.libraryItems)
                 self.nextButton?.isHidden = self.reachedLibraryEnd
-                self.statusLabel.stringValue = "已显示 \(self.libraryItems.count) / \(self.total) 部"
+                self.statusLabel.stringValue = L10n.ui("library.progress", self.libraryItems.count, self.total)
             } catch { if current == self.generation, !Task.isCancelled { self.showError(error) } }
             if current == self.generation { self.loadingMore = false; self.nextButton?.isEnabled = true; self.spinner.stopAnimation(nil) }
         }
@@ -306,8 +315,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
         label.maximumNumberOfLines = 4; label.alignment = .center; label.lineBreakMode = .byWordWrapping
         let stack = UI.stack([icon, UI.label(title, size: 23, weight: .semibold), label], spacing: 14)
         stack.alignment = .centerX
-        if reconnect { stack.addArrangedSubview(UI.button("重新登录…", target: self, action: #selector(connectPressed))) }
-        else if retry { stack.addArrangedSubview(UI.button("重新载入", target: self, action: #selector(refreshPressed))) }
+        if reconnect { stack.addArrangedSubview(UI.button(L10n.ui("action.signInAgain"), target: self, action: #selector(connectPressed))) }
+        else if retry { stack.addArrangedSubview(UI.button(L10n.ui("action.reload"), target: self, action: #selector(refreshPressed))) }
         stack.translatesAutoresizingMaskIntoConstraints = false; body.addSubview(stack)
         NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: body.centerXAnchor), stack.centerYAnchor.constraint(equalTo: body.centerYAnchor), stack.widthAnchor.constraint(lessThanOrEqualTo: body.widthAnchor, constant: -80), label.widthAnchor.constraint(lessThanOrEqualToConstant: 430)])
     }
@@ -402,9 +411,9 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSSearc
         grid?.updateFavorite(id: item.id, value: item.isFavorite, remove: removesItem)
         if grid != nil {
             subtitleLabel.stringValue = librarySubtitle
-            statusLabel.stringValue = "已显示 \(libraryItems.count) / \(total) 部 · 双击查看详情，空格播放"
+            statusLabel.stringValue = L10n.ui("library.progressHelp", libraryItems.count, total)
             if libraryItems.isEmpty { renderLibrary() }
         }
     }
-    private func showError(_ error: Error) { let alert = NSAlert(); alert.messageText = "操作未完成"; alert.informativeText = error.localizedDescription; if let window { alert.beginSheetModal(for: window) } }
+    private func showError(_ error: Error) { let alert = NSAlert(); alert.messageText = L10n.ui("error.operationIncomplete"); alert.informativeText = error.localizedDescription; if let window { alert.beginSheetModal(for: window) } }
 }

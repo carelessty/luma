@@ -9,14 +9,14 @@ struct Destination: Equatable {
 
 final class SidebarController: NSViewController, NSTableViewDelegate, NSTableViewDataSource {
     static let primary = [
-        Destination(title: "现在观看", symbol: "play.rectangle", key: "home"),
-        Destination(title: "电影", symbol: "film", key: "movie"),
-        Destination(title: "剧集", symbol: "tv", key: "series"),
-        Destination(title: "收藏", symbol: "heart", key: "favorites")
+        Destination(title: L10n.ui("navigation.watchNow"), symbol: "play.rectangle", key: "home"),
+        Destination(title: L10n.ui("navigation.movies"), symbol: "film", key: "movie"),
+        Destination(title: L10n.ui("navigation.shows"), symbol: "tv", key: "series"),
+        Destination(title: L10n.ui("navigation.favorites"), symbol: "heart", key: "favorites")
     ]
     private let table = NSTableView()
-    private let serverTitle = UI.label("尚未连接", size: 12, weight: .semibold)
-    private let serverSubtitle = UI.label("正在预览 Luma", size: 11, color: .secondaryLabelColor)
+    private let serverTitle = UI.label(L10n.ui("sidebar.disconnected"), size: 12, weight: .semibold)
+    private let serverSubtitle = UI.label(L10n.ui("sidebar.preview"), size: 11, color: .secondaryLabelColor)
     private let serverButton = NSButton()
     private var destinations = SidebarController.primary
     private var updating = false
@@ -33,7 +33,7 @@ final class SidebarController: NSViewController, NSTableViewDelegate, NSTableVie
         let column = NSTableColumn(identifier: .init("destination"))
         table.addTableColumn(column)
         table.delegate = self; table.dataSource = self
-        table.setAccessibilityLabel("资料库侧边栏")
+        table.setAccessibilityLabel(L10n.ui("sidebar.accessibility"))
         let scroll = NSScrollView()
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -46,12 +46,15 @@ final class SidebarController: NSViewController, NSTableViewDelegate, NSTableVie
         symbol.widthAnchor.constraint(equalToConstant: 27).isActive = true
         symbol.heightAnchor.constraint(equalToConstant: 27).isActive = true
         let brand = UI.stack([symbol, logo], vertical: false, spacing: 10)
-        let group = UI.label("资料库", size: 11, weight: .semibold, color: .secondaryLabelColor)
+        let group = UI.label(L10n.ui("sidebar.library"), size: 11, weight: .semibold, color: .secondaryLabelColor)
         let serverIcon = NSImageView(image: NSImage(systemSymbolName: "externaldrive.connected.to.line.below", accessibilityDescription: nil)!)
         serverIcon.contentTintColor = .secondaryLabelColor
         let serverLabels = UI.stack([serverTitle, serverSubtitle], spacing: 3)
+        serverSubtitle.maximumNumberOfLines = 2
+        serverSubtitle.lineBreakMode = .byWordWrapping
+        serverSubtitle.widthAnchor.constraint(lessThanOrEqualTo: serverLabels.widthAnchor).isActive = true
         let serverRow = UI.stack([serverIcon, serverLabels], vertical: false, spacing: 10)
-        serverButton.title = "连接服务器…"
+        serverButton.title = L10n.ui("menu.connect")
         serverButton.bezelStyle = .rounded
         serverButton.target = self; serverButton.action = #selector(connect)
         let separator = NSBox(); separator.boxType = .separator
@@ -71,9 +74,9 @@ final class SidebarController: NSViewController, NSTableViewDelegate, NSTableVie
         defer { updating = false }
         let selected = table.selectedRow >= 0 && table.selectedRow < destinations.count ? destinations[table.selectedRow].key : "home"
         destinations = Self.primary + views.map { Destination(title: $0.title, symbol: "rectangle.stack", key: "library-\($0.id)", parentID: $0.id) }
-        serverTitle.stringValue = session?.serverName ?? "尚未连接"
-        serverSubtitle.stringValue = session.map { "以 \($0.userName) 的身份连接" } ?? "正在预览 Luma"
-        serverButton.title = session == nil ? "连接服务器…" : "管理连接…"
+        serverTitle.stringValue = session?.serverName ?? L10n.ui("sidebar.disconnected")
+        serverSubtitle.stringValue = session.map { L10n.ui("sidebar.account", $0.userName) } ?? L10n.ui("sidebar.preview")
+        serverButton.title = session == nil ? L10n.ui("menu.connect") : L10n.ui("sidebar.manage")
         table.reloadData()
         if let index = destinations.firstIndex(where: { $0.key == selected }) { table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false) }
     }

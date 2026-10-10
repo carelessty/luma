@@ -44,10 +44,10 @@ final class MPVPlayback {
         case unavailable(Int32), graphicsUnavailable, stopped, invalidURL
         var errorDescription: String? {
             switch self {
-            case .unavailable(let code): return "无法初始化直接播放引擎（mpv \(code)）。"
-            case .graphicsUnavailable: return "无法创建视频显示上下文，请重新打开播放器。"
-            case .stopped: return "播放器已关闭，请重新打开影片。"
-            case .invalidURL: return "媒体地址无效，请重新连接服务器。"
+            case .unavailable(let code): return L10n.playback("error.mpv.initialization", code)
+            case .graphicsUnavailable: return L10n.playback("error.mpv.graphics")
+            case .stopped: return L10n.playback("error.mpv.stopped")
+            case .invalidURL: return L10n.playback("error.mpv.invalid.url")
             }
         }
     }
@@ -82,8 +82,8 @@ final class MPVPlayback {
             switch event {
             case .ready: self.onReady?()
             case .ended: self.onEnded?()
-            case .error(let code): self.onError?("无法读取或解码这段视频（mpv \(code)），请检查网络或重试。")
-            case .warning(let code): self.onWarning?("播放操作未完成（mpv \(code)），当前影片会继续播放。")
+            case .error(let code): self.onError?(L10n.playback("error.mpv.decode", code))
+            case .warning(let code): self.onWarning?(L10n.playback("error.mpv.operation", code))
             case .update: break
             }
         }
@@ -443,7 +443,7 @@ private final class MPVCore: @unchecked Sendable {
             let title = string("title").flatMap { $0.isEmpty ? nil : $0 }
                 ?? [language, string("codec")?.uppercased()].compactMap { $0 }.joined(separator: " · ")
             let selected = fields["selected"].map { $0.format == MPV_FORMAT_FLAG && $0.u.flag != 0 } ?? false
-            return MPVTrack(id: id, title: title.isEmpty ? "\(type == "audio" ? "音轨" : "字幕") \(id)" : title,
+            return MPVTrack(id: id, title: title.isEmpty ? L10n.playback(type == "audio" ? "track.audio.numbered" : "track.subtitle.numbered", id) : title,
                             language: language, selected: selected)
         }
     }
@@ -473,7 +473,7 @@ private final class MPVVideoView: NSOpenGLView {
         super.init(frame: .zero, pixelFormat: format)
         guard openGLContext != nil else { return nil }
         wantsBestResolutionOpenGLSurface = true
-        setAccessibilityLabel("影片画面")
+        setAccessibilityLabel(L10n.playback("accessibility.video"))
         var interval: GLint = 1
         openGLContext?.setValues(&interval, for: .swapInterval)
     }

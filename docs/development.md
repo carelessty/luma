@@ -1,54 +1,81 @@
-# 开发与贡献
+# Development
 
-macOS 主工程使用 SwiftPM、AppKit 和 Swift Testing。请先按根目录 README 安装 SDK 与 Homebrew 依赖。
+Luma is a SwiftPM executable using AppKit, AVKit, and libmpv. Start with the [requirements and build instructions](../README.md#build).
 
-## 检查
+## Build and run
+
+```sh
+./scripts/run-macos.sh
+
+# Build without launching
+./scripts/build-macos.sh
+
+# Build and launch with debug symbols
+LUMA_BUILD_CONFIGURATION=debug ./scripts/run-macos.sh
+```
+
+The default configuration is `release`. The app is assembled at `build/macos/Luma.app` with its icon, demo artwork, localization resources, and dynamic libraries.
+
+The build script uses SwiftPM's native build engine and verifies that the executable records the selected SDK. It then bundles libmpv's non-system dynamic-library dependencies, rewrites their load paths, calculates the required minimum macOS version, and signs the result locally. A packaged app does not load these libraries from Homebrew at runtime.
+
+## Tests
 
 ```sh
 ./scripts/test-macos.sh
-./scripts/build-macos.sh
-./scripts/archive-macos.sh
+
+# Forward Swift Testing filters to swift test
+./scripts/test-macos.sh --filter BackendTests
 ```
 
-测试脚本自动定位 Swift Testing，并将测试构建放在临时目录以避免 FileProvider 元数据影响签名。可用 `LUMA_TEST_SCRATCH` 指定目录。测试应以 Swift Testing 的完整通过汇总为准，而不只查看进程退出码。播放测试使用本机合成媒体，需要 FFmpeg；部分验证涉及 AppKit 窗口与硬件解码，因此应在有图形会话的 Mac 上运行。
+Tests use Swift Testing and synthetic network responses and media. FFmpeg generates local playback fixtures. The script locates the active toolchain's Testing framework and uses a temporary build directory to avoid FileProvider metadata interfering with code signing. Set `LUMA_TEST_SCRATCH` to use a different scratch directory.
 
-`MPVPlaybackTests` 会独立检测系统能否创建硬件加速的 OpenGL 3.2 上下文。GitHub 托管的 macOS 虚拟机可能缺少该能力，此时只将这两项播放集成测试明确标记为跳过；其他测试与完整应用构建、打包验证继续执行。有图形能力的 Mac 仍运行完整播放测试，播放器自身的初始化错误不会被当作跳过条件。云端检查通过不能替代本机的解码、渲染和硬件加速验证。
+Check the final Swift Testing summary as well as the exit code. Some tests create AppKit windows and exercise the playback engine, so full local validation needs a Mac with a graphical session.
 
-构建脚本计算动态库闭包、核对架构和最低系统版本，装入依赖及其许可证。归档脚本重新解压并验证代码签名。GitHub Actions 执行检查和打包验证，但不对外上传二进制。
+`MPVPlaybackTests` probes for an accelerated OpenGL 3.2 context before running rendering integration tests. A hosted macOS runner without that capability skips those tests explicitly. Other tests and application packaging still run. A failure to initialize Luma's player on a capable Mac is a test failure, not a reason to skip.
 
-## 本地模拟服务器
+For interface changes, check English and Simplified Chinese, light and dark appearances, keyboard navigation, and the relevant window sizes. For playback changes, check both engines where applicable, including pause, seek, track selection, resume position, and closing the player.
 
-无需真实账户即可联调登录、首页、分页、收藏、详情与进度上报：
+## Local Emby fixture
+
+The optional integration fixture requires Node.js 22 or later. It has no npm dependencies and is not part of the application.
 
 ```sh
 node scripts/mock-emby.mjs
 ```
 
-从应用连接 `http://127.0.0.1:8097`，使用演示用户名 `demo`、密码 `demo`。该服务只监听本机，包含虚构资料，所有状态在进程退出后消失。`http://127.0.0.1:8097/__qa/state` 提供本地检查状态。按 Ctrl+C 停止。
+Connect Luma to `http://127.0.0.1:8097` with username `demo` and password `demo`. The fixture binds only to loopback and provides fictional movies, a series, pagination, favorites, and playback progress endpoints. State is kept in memory and cleared on exit. Request and playback state is available at `http://127.0.0.1:8097/__qa/state`.
 
-默认视频来自 Sintel 在线预告片，首次播放需要联网。此夹具不是生产 Emby Server，不能替代真实服务器、反向代理、媒体格式和设备兼容性测试。高级夹具选项见 `scripts/mock-emby.mjs`。
-
-## 保留的 Windows 实验版
-
-`src/` 和 `src-tauri/` 是早期 React + Tauri / Rust 实现，与 macOS AppKit 工程独立。需要 Node.js 22+、Rust stable（至少 1.90），Windows 构建还需要 Visual Studio C++ Build Tools 与 WebView2。
+By default, playback uses the online Sintel trailer described in [asset credits](assets.md). To generate a local MKV sample instead:
 
 ```sh
-npm ci
-npm test
-npm run build
-cargo fmt --manifest-path src-tauri/Cargo.toml --check
-cargo test --manifest-path src-tauri/Cargo.toml --locked
-cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
-
-# 在 Windows 上运行或生成安装包
-npm run desktop:dev
-npm run desktop:build -- --bundles nsis
+LUMA_QA_SYNTHETIC_MKV=1 node scripts/mock-emby.mjs
 ```
 
-旧版界面预览可运行 `npm run dev`。浏览器预览主要展示演示模式；真实服务器请求由 Tauri 原生后端处理。请勿把旧版网页或 Tauri 预览当作当前 macOS AppKit 应用。
+Useful environment variables:
 
-## 提交问题与改动
+| Variable | Purpose |
+| --- | --- |
+| `LUMA_QA_PORT` | Change the listening port. |
+| `LUMA_QA_FFMPEG` | Select an FFmpeg executable for synthetic samples. |
+| `LUMA_QA_VIDEO_CODEC` | Choose `h264` or `hevc` for a synthetic sample. |
+| `LUMA_QA_SAMPLE_FILE` | Serve a local sample file, up to 30 MiB. |
+| `LUMA_QA_MULTITRACK=1` | Describe a matching local multi-track MKV fixture; requires `LUMA_QA_SYNTHETIC_MKV=1` and `LUMA_QA_SAMPLE_FILE`. |
 
-欢迎通过 GitHub Issues 和 Pull Requests 提交复现步骤、修复与改进。请说明系统、芯片、应用版本，以及问题发生在哪个播放器或界面流程；改动应包含与其风险相称的验证说明。贡献按项目 GPL-3.0-or-later 许可提交。
+The fixture exercises client behavior; real Emby servers, reverse proxies, and different media still need integration testing. Stop it with Ctrl+C.
 
-请使用模拟数据和脱敏截图，不要提交服务器密码、访问令牌、带认证参数的播放链接或个人观看记录。本地联调记录、截图、输入采样、构建产物和缓存默认不进入仓库；需要新增公开文档时，在 `.gitignore` 的文档白名单中显式加入。
+## Localization
+
+Application translations are SwiftPM resources under `macos/Sources/Luma/Resources/`. English is the development language; `zh-Hans` supplies Simplified Chinese. App bundle metadata translations live under `macos/Resources/`.
+
+Use macOS **Language & Region → Applications** to test a language override and relaunch Luma. The app should translate controls and application messages while preserving server-provided media metadata. Translation guidelines are in [CONTRIBUTING.md](../CONTRIBUTING.md#translations).
+
+## Packaging
+
+```sh
+./scripts/build-macos.sh
+./scripts/archive-macos.sh
+```
+
+The archive is written to `build/macos/Luma-macOS.zip`. The archive script extracts a temporary copy and verifies its code signature. GitHub Actions runs tests, builds the app, and checks the archive; it does not publish binaries.
+
+Local builds are ad-hoc signed. A public binary release needs release signing, notarization, and the corresponding source and license materials for the exact bundled dependencies. The generated dependency manifest is at `Luma.app/Contents/Resources/ThirdParty/manifest.json`. See [third-party notices](../macos/ThirdPartyNotices.md).

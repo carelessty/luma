@@ -40,7 +40,11 @@ cp "$LUMA_ROOT/macos/Info.plist" "$LUMA_APP/Contents/Info.plist"
 cp "$LUMA_ROOT/macos/Resources/AppIcon.icns" "$LUMA_APP/Contents/Resources/Luma.icns"
 cp "$LUMA_ROOT/LICENSE" "$LUMA_APP/Contents/Resources/LICENSE"
 cp "$LUMA_ROOT/docs/assets.md" "$LUMA_APP/Contents/Resources/AssetNotices.md"
-ditto "$LUMA_ROOT/public/media" "$LUMA_APP/Contents/Resources/Media"
+ditto "$LUMA_ROOT/macos/Resources/Media" "$LUMA_APP/Contents/Resources/Media"
+ditto "$LUMA_BIN_DIR/Luma_Luma.bundle" "$LUMA_APP/Contents/Resources/Luma_Luma.bundle"
+for LUMA_LANGUAGE in en zh-Hans; do
+    ditto "$LUMA_ROOT/macos/Resources/$LUMA_LANGUAGE.lproj" "$LUMA_APP/Contents/Resources/$LUMA_LANGUAGE.lproj"
+done
 chmod 755 "$LUMA_APP/Contents/MacOS/Luma"
 plutil -lint "$LUMA_APP/Contents/Info.plist"
 

@@ -53,10 +53,10 @@ struct KeychainSessionStore: SessionStore {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(attributes as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw failure(status, operation: "读取") }
+        guard status == errSecSuccess else { throw failure(status, operation: L10n.service("keychain.read")) }
         guard let data = result as? Data,
               let session = try? JSONDecoder().decode(StoredSession.self, from: data) else {
-            throw ServiceError(code: "SESSION_STORAGE", message: "钥匙串中的连接信息无法读取，请重新连接服务器以更新保存的凭据。")
+            throw ServiceError(code: "SESSION_STORAGE", message: L10n.service("keychain.unreadable"))
         }
         return session
     }
@@ -64,7 +64,7 @@ struct KeychainSessionStore: SessionStore {
     func save(_ value: StoredSession) throws {
         let data = try JSONEncoder().encode(value)
         let changes: [String: Any] = [kSecValueData as String: data,
-                                      kSecAttrLabel as String: "Luma 服务器连接"]
+                                      kSecAttrLabel as String: L10n.service("keychain.label")]
         var status = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
         if status == errSecItemNotFound {
             var attributes = query
@@ -73,22 +73,22 @@ struct KeychainSessionStore: SessionStore {
             // Another instance may have saved between update and add.
             if status == errSecDuplicateItem { status = SecItemUpdate(query as CFDictionary, changes as CFDictionary) }
         }
-        guard status == errSecSuccess else { throw failure(status, operation: "保存") }
+        guard status == errSecSuccess else { throw failure(status, operation: L10n.service("keychain.save")) }
     }
 
     func clear() throws {
         let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else { throw failure(status, operation: "删除") }
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw failure(status, operation: L10n.service("keychain.delete")) }
     }
 
     private func failure(_ status: OSStatus, operation: String) -> ServiceError {
         let reason: String
         switch status {
-        case errSecUserCanceled: reason = "钥匙串授权已取消。请允许 Luma 访问保存的连接后重试。"
-        case errSecAuthFailed, errSecInteractionNotAllowed: reason = "请解锁登录钥匙串，并允许 Luma 访问保存的连接后重试。"
-        case errSecNotAvailable: reason = "登录钥匙串暂时不可用，请稍后重试。"
-        default: reason = "请检查登录钥匙串后重试（错误 \(status)）。"
+        case errSecUserCanceled: reason = L10n.service("keychain.cancelled")
+        case errSecAuthFailed, errSecInteractionNotAllowed: reason = L10n.service("keychain.locked")
+        case errSecNotAvailable: reason = L10n.service("keychain.unavailable")
+        default: reason = L10n.service("keychain.error", status)
         }
-        return ServiceError(code: "SESSION_STORAGE", message: "无法\(operation)服务器连接。\(reason)")
+        return ServiceError(code: "SESSION_STORAGE", message: L10n.service("keychain.operationFailed", operation, reason))
     }
 }

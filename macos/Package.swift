@@ -2,6 +2,7 @@
 import PackageDescription
 let package = Package(
     name: "Luma",
+    defaultLocalization: "en",
     platforms: [.macOS(.v13)],
     products: [.executable(name: "Luma", targets: ["Luma"])],
     targets: [
@@ -15,6 +16,7 @@ let package = Package(
             name: "Luma",
             dependencies: ["CMPV"],
             path: "Sources/Luma",
+            resources: [.process("Resources")],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("AVKit"),
