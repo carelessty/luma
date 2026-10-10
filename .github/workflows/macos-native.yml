@@ -1,0 +1,38 @@
+name: Native macOS checks
+
+on:
+  push:
+    branches: [main, master]
+    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'public/media/**', '.github/workflows/macos-native.yml']
+  pull_request:
+    paths: ['macos/**', 'scripts/*-macos.sh', 'scripts/bundle-mpv.py', 'public/media/**', '.github/workflows/macos-native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-macos:
+    # Liquid Glass symbols require the macOS 26 SDK or newer.
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift toolchain
+        run: |
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
+      - name: Native playback dependencies
+        run: brew install mpv pkgconf ffmpeg
+      - name: Native unit tests
+        run: ./scripts/test-macos.sh
+      - name: Build and locally sign the native app
+        run: scripts/build-macos.sh
+      - name: Archive app and verify extracted signature
+        run: scripts/archive-macos.sh
+      # Source-only publication: do not distribute linked binaries until a
+      # matching dependency source bundle and release signing are prepared.

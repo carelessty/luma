@@ -1,0 +1,29 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
+/build/
+/macos/.build/
+__pycache__/
+*.py[cod]
+*.app/
+*.dmg
+*.zip
+*.pem
+*.p12
+*.mobileprovision
+
+# Local screenshots, real-server QA records and input telemetry stay private.
+# Publish only the reviewed documentation below.
+/docs/*
+!/docs/native-architecture.md
+!/docs/development.md
+!/docs/assets.md
